@@ -1219,7 +1219,7 @@ Compare screenshots and observations across pages for:
 
 **Project-scoped:**
 \`\`\`bash
-source <(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null) && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
 \`\`\`
 Write to: \`~/.gstack/projects/{slug}/{user}-{branch}-design-audit-{datetime}.md\`
 
@@ -1311,7 +1311,7 @@ After completing the review, read the review log and config to display the dashb
 ~/.claude/skills/gstack/bin/gstack-review-read
 \`\`\`
 
-Parse the output. Find the most recent entry for each skill (plan-ceo-review, plan-eng-review, plan-design-review, design-review-lite, adversarial-review, codex-review). Ignore entries with timestamps older than 7 days. For the Adversarial row, show whichever is more recent between \`adversarial-review\` (new auto-scaled) and \`codex-review\` (legacy). For Design Review, show whichever is more recent between \`plan-design-review\` (full visual audit) and \`design-review-lite\` (code-level check). Append "(FULL)" or "(LITE)" to the status to distinguish. Display:
+Parse the output. Find the most recent entry for each skill (plan-ceo-review, plan-eng-review, plan-design-review, design-review-lite, adversarial-review, codex-review, codex-plan-review). Ignore entries with timestamps older than 7 days. For the Adversarial row, show whichever is more recent between \`adversarial-review\` (new auto-scaled) and \`codex-review\` (legacy). For Design Review, show whichever is more recent between \`plan-design-review\` (full visual audit) and \`design-review-lite\` (code-level check). Append "(FULL)" or "(LITE)" to the status to distinguish. Display:
 
 \`\`\`
 +====================================================================+
@@ -1323,6 +1323,7 @@ Parse the output. Find the most recent entry for each skill (plan-ceo-review, pl
 | CEO Review      |  0   | —                   | —         | no       |
 | Design Review   |  0   | —                   | —         | no       |
 | Adversarial     |  0   | —                   | —         | no       |
+| Outside Voice   |  0   | —                   | —         | no       |
 +--------------------------------------------------------------------+
 | VERDICT: CLEARED — Eng Review passed                                |
 +====================================================================+
@@ -1333,6 +1334,7 @@ Parse the output. Find the most recent entry for each skill (plan-ceo-review, pl
 - **CEO Review (optional):** Use your judgment. Recommend it for big product/business changes, new user-facing features, or scope decisions. Skip for bug fixes, refactors, infra, and cleanup.
 - **Design Review (optional):** Use your judgment. Recommend it for UI/UX changes. Skip for backend-only, infra, or prompt-only changes.
 - **Adversarial Review (automatic):** Auto-scales by diff size. Small diffs (<50 lines) skip adversarial. Medium diffs (50–199) get cross-model adversarial. Large diffs (200+) get all 4 passes: Claude structured, Codex structured, Claude adversarial subagent, Codex adversarial. No configuration needed.
+- **Outside Voice (optional):** Independent plan review from a different AI model. Offered after all review sections complete in /plan-ceo-review and /plan-eng-review. Falls back to Claude subagent if Codex is unavailable. Never gates shipping.
 
 **Verdict logic:**
 - **CLEARED**: Eng Review has >= 1 entry within 7 days with status "clean" (or \\\`skip_eng_review\\\` is \\\`true\\\`)
@@ -1815,7 +1817,7 @@ The plan should be complete enough that when implementation begins, every test i
 After producing the coverage diagram, write a test plan artifact to the project directory so \`/qa\` and \`/qa-only\` can consume it as primary test input:
 
 \`\`\`bash
-source <(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null) && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
 USER=$(whoami)
 DATETIME=$(date +%Y%m%d-%H%M%S)
 \`\`\`
@@ -1879,7 +1881,7 @@ Coverage line: \`Test Coverage Audit: N new code paths. M covered (X%). K tests 
 After producing the coverage diagram, write a test plan artifact so \`/qa\` and \`/qa-only\` can consume it:
 
 \`\`\`bash
-source <(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null) && mkdir -p ~/.gstack/projects/$SLUG
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
 USER=$(whoami)
 DATETIME=$(date +%Y%m%d-%H%M%S)
 \`\`\`
@@ -2021,11 +2023,43 @@ Say to the user via AskUserQuestion:
 > not per-product — it captures the thinking behind this specific change."
 
 Options:
-- A) Run /${first} first (in another window, then come back)
+- A) Run /${first} now (we'll pick up the review right after)
 - B) Skip — proceed with standard review
 
 If they skip: "No worries — standard review. If you ever want sharper input, try
-/${first} first next time." Then proceed normally. Do not re-offer later in the session.`;
+/${first} first next time." Then proceed normally. Do not re-offer later in the session.
+
+If they choose A:
+
+Say: "Running /${first} inline. Once the design doc is ready, I'll pick up
+the review right where we left off."
+
+Read the ${first} skill file from disk using the Read tool:
+\`~/.claude/skills/gstack/${first}/SKILL.md\`
+
+Follow it inline, **skipping these sections** (already handled by the parent skill):
+- Preamble (run first)
+- AskUserQuestion Format
+- Completeness Principle — Boil the Lake
+- Search Before Building
+- Contributor Mode
+- Completion Status Protocol
+- Telemetry (run last)
+
+If the Read fails (file not found), say:
+"Could not load /${first} — proceeding with standard review."
+
+After /${first} completes, re-run the design doc check:
+\`\`\`bash
+SLUG=$(~/.claude/skills/gstack/browse/bin/remote-slug 2>/dev/null || basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-' || echo 'no-branch')
+DESIGN=$(ls -t ~/.gstack/projects/$SLUG/*-$BRANCH-design-*.md 2>/dev/null | head -1)
+[ -z "$DESIGN" ] && DESIGN=$(ls -t ~/.gstack/projects/$SLUG/*-design-*.md 2>/dev/null | head -1)
+[ -n "$DESIGN" ] && echo "Design doc found: $DESIGN" || echo "No design doc found"
+\`\`\`
+
+If a design doc is now found, read it and continue the review.
+If none was produced (user may have cancelled), proceed with standard review.`;
 }
 
 function generateDesignSketch(_ctx: TemplateContext): string {
@@ -2115,6 +2149,93 @@ Use a 5-minute timeout (\`timeout: 300000\`). After completion: \`cat "$TMPERR_S
 
 Present Codex output under \`CODEX SAYS (design sketch):\` and subagent output under \`CLAUDE SUBAGENT (design direction):\`.
 Error handling: all non-blocking. On failure, skip and continue.`;
+}
+
+function generateCodexSecondOpinion(ctx: TemplateContext): string {
+  // Codex host: strip entirely — Codex should never invoke itself
+  if (ctx.host === 'codex') return '';
+
+  return `## Phase 3.5: Cross-Model Second Opinion (optional)
+
+**Binary check first — no question if unavailable:**
+
+\`\`\`bash
+which codex 2>/dev/null && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_AVAILABLE"
+\`\`\`
+
+If \`CODEX_NOT_AVAILABLE\`: skip Phase 3.5 entirely — no message, no AskUserQuestion. Proceed directly to Phase 4.
+
+If \`CODEX_AVAILABLE\`: use AskUserQuestion:
+
+> Want a second opinion from a different AI model? Codex will independently review your problem statement, key answers, premises, and any landscape findings from this session. It hasn't seen this conversation — it gets a structured summary. Usually takes 2-5 minutes.
+> A) Yes, get a second opinion
+> B) No, proceed to alternatives
+
+If B: skip Phase 3.5 entirely. Remember that Codex did NOT run (affects design doc, founder signals, and Phase 4 below).
+
+**If A: Run the Codex cold read.**
+
+1. Assemble a structured context block from Phases 1-3:
+   - Mode (Startup or Builder)
+   - Problem statement (from Phase 1)
+   - Key answers from Phase 2A/2B (summarize each Q&A in 1-2 sentences, include verbatim user quotes)
+   - Landscape findings (from Phase 2.75, if search was run)
+   - Agreed premises (from Phase 3)
+   - Codebase context (project name, languages, recent activity)
+
+2. **Write the assembled prompt to a temp file** (prevents shell injection from user-derived content):
+
+\`\`\`bash
+CODEX_PROMPT_FILE=$(mktemp /tmp/gstack-codex-oh-XXXXXXXX.txt)
+\`\`\`
+
+Write the full prompt (context block + instructions) to this file. Use the mode-appropriate variant:
+
+**Startup mode instructions:** "You are an independent technical advisor reading a transcript of a startup brainstorming session. [CONTEXT BLOCK HERE]. Your job: 1) What is the STRONGEST version of what this person is trying to build? Steelman it in 2-3 sentences. 2) What is the ONE thing from their answers that reveals the most about what they should actually build? Quote it and explain why. 3) Name ONE agreed premise you think is wrong, and what evidence would prove you right. 4) If you had 48 hours and one engineer to build a prototype, what would you build? Be specific — tech stack, features, what you'd skip. Be direct. Be terse. No preamble."
+
+**Builder mode instructions:** "You are an independent technical advisor reading a transcript of a builder brainstorming session. [CONTEXT BLOCK HERE]. Your job: 1) What is the COOLEST version of this they haven't considered? 2) What's the ONE thing from their answers that reveals what excites them most? Quote it. 3) What existing open source project or tool gets them 50% of the way there — and what's the 50% they'd need to build? 4) If you had a weekend to build this, what would you build first? Be specific. Be direct. No preamble."
+
+3. Run Codex:
+
+\`\`\`bash
+TMPERR_OH=$(mktemp /tmp/codex-oh-err-XXXXXXXX)
+codex exec "$(cat "$CODEX_PROMPT_FILE")" -s read-only -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR_OH"
+\`\`\`
+
+Use a 5-minute timeout (\`timeout: 300000\`). After the command completes, read stderr:
+\`\`\`bash
+cat "$TMPERR_OH"
+rm -f "$TMPERR_OH" "$CODEX_PROMPT_FILE"
+\`\`\`
+
+**Error handling:** All errors are non-blocking — Codex second opinion is a quality enhancement, not a prerequisite.
+- **Auth failure:** If stderr contains "auth", "login", "unauthorized", or "API key": "Codex authentication failed. Run \\\`codex login\\\` to authenticate. Skipping second opinion."
+- **Timeout:** "Codex timed out after 5 minutes. Skipping second opinion."
+- **Empty response:** "Codex returned no response. Stderr: <paste relevant error>. Skipping second opinion."
+
+On any error, proceed to Phase 4 — do NOT fall back to a Claude subagent (this is brainstorming, not adversarial review).
+
+4. **Presentation:**
+
+\`\`\`
+SECOND OPINION (Codex):
+════════════════════════════════════════════════════════════
+<full codex output, verbatim — do not truncate or summarize>
+════════════════════════════════════════════════════════════
+\`\`\`
+
+5. **Cross-model synthesis:** After presenting Codex output, provide 3-5 bullet synthesis:
+   - Where Claude agrees with Codex
+   - Where Claude disagrees and why
+   - Whether Codex's challenged premise changes Claude's recommendation
+
+6. **Premise revision check:** If Codex challenged an agreed premise, use AskUserQuestion:
+
+> Codex challenged premise #{N}: "{premise text}". Their argument: "{reasoning}".
+> A) Revise this premise based on Codex's input
+> B) Keep the original premise — proceed to alternatives
+
+If A: revise the premise and note the revision. If B: proceed (and note that the user defended this premise with reasoning — this is a founder signal if they articulate WHY they disagree, not just dismiss).`;
 }
 
 function generateAdversarialStep(ctx: TemplateContext): string {
@@ -2257,6 +2378,130 @@ ADVERSARIAL REVIEW SYNTHESIS (auto: TIER, N lines):
 \`\`\`
 
 High-confidence findings (agreed on by multiple sources) should be prioritized for fixes.
+
+---`;
+}
+
+function generateCodexPlanReview(ctx: TemplateContext): string {
+  // Codex host: strip entirely — Codex should never invoke itself
+  if (ctx.host === 'codex') return '';
+
+  return `## Outside Voice — Independent Plan Challenge (optional, recommended)
+
+After all review sections are complete, offer an independent second opinion from a
+different AI system. Two models agreeing on a plan is stronger signal than one model's
+thorough review.
+
+**Check tool availability:**
+
+\`\`\`bash
+which codex 2>/dev/null && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_AVAILABLE"
+\`\`\`
+
+Use AskUserQuestion:
+
+> "All review sections are complete. Want an outside voice? A different AI system can
+> give a brutally honest, independent challenge of this plan — logical gaps, feasibility
+> risks, and blind spots that are hard to catch from inside the review. Takes about 2
+> minutes."
+>
+> RECOMMENDATION: Choose A — an independent second opinion catches structural blind
+> spots. Two different AI models agreeing on a plan is stronger signal than one model's
+> thorough review. Completeness: A=9/10, B=7/10.
+
+Options:
+- A) Get the outside voice (recommended)
+- B) Skip — proceed to outputs
+
+**If B:** Print "Skipping outside voice." and continue to the next section.
+
+**If A:** Construct the plan review prompt. Read the plan file being reviewed (the file
+the user pointed this review at, or the branch diff scope). If a CEO plan document
+was written in Step 0D-POST, read that too — it contains the scope decisions and vision.
+
+Construct this prompt (substitute the actual plan content — if plan content exceeds 30KB,
+truncate to the first 30KB and note "Plan truncated for size"):
+
+"You are a brutally honest technical reviewer examining a development plan that has
+already been through a multi-section review. Your job is NOT to repeat that review.
+Instead, find what it missed. Look for: logical gaps and unstated assumptions that
+survived the review scrutiny, overcomplexity (is there a fundamentally simpler
+approach the review was too deep in the weeds to see?), feasibility risks the review
+took for granted, missing dependencies or sequencing issues, and strategic
+miscalibration (is this the right thing to build at all?). Be direct. Be terse. No
+compliments. Just the problems.
+
+THE PLAN:
+<plan content>"
+
+**If CODEX_AVAILABLE:**
+
+\`\`\`bash
+TMPERR_PV=$(mktemp /tmp/codex-planreview-XXXXXXXX)
+codex exec "<prompt>" -s read-only -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR_PV"
+\`\`\`
+
+Use a 5-minute timeout (\`timeout: 300000\`). After the command completes, read stderr:
+\`\`\`bash
+cat "$TMPERR_PV"
+\`\`\`
+
+Present the full output verbatim:
+
+\`\`\`
+CODEX SAYS (plan review — outside voice):
+════════════════════════════════════════════════════════════
+<full codex output, verbatim — do not truncate or summarize>
+════════════════════════════════════════════════════════════
+\`\`\`
+
+**Error handling:** All errors are non-blocking — the outside voice is informational.
+- Auth failure (stderr contains "auth", "login", "unauthorized"): "Codex auth failed. Run \\\`codex login\\\` to authenticate."
+- Timeout: "Codex timed out after 5 minutes."
+- Empty response: "Codex returned no response."
+
+On any Codex error, fall back to the Claude adversarial subagent.
+
+**If CODEX_NOT_AVAILABLE (or Codex errored):**
+
+Dispatch via the Agent tool. The subagent has fresh context — genuine independence.
+
+Subagent prompt: same plan review prompt as above.
+
+Present findings under an \`OUTSIDE VOICE (Claude subagent):\` header.
+
+If the subagent fails or times out: "Outside voice unavailable. Continuing to outputs."
+
+**Cross-model tension:**
+
+After presenting the outside voice findings, note any points where the outside voice
+disagrees with the review findings from earlier sections. Flag these as:
+
+\`\`\`
+CROSS-MODEL TENSION:
+  [Topic]: Review said X. Outside voice says Y. [Your assessment of who's right.]
+\`\`\`
+
+For each substantive tension point, auto-propose as a TODO via AskUserQuestion:
+
+> "Cross-model disagreement on [topic]. The review found [X] but the outside voice
+> argues [Y]. Worth investigating further?"
+
+Options:
+- A) Add to TODOS.md
+- B) Skip — not substantive
+
+If no tension points exist, note: "No cross-model tension — both reviewers agree."
+
+**Persist the result:**
+\`\`\`bash
+~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"codex-plan-review","timestamp":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","status":"STATUS","source":"SOURCE","commit":"'"$(git rev-parse --short HEAD)"'"}'
+\`\`\`
+
+Substitute: STATUS = "clean" if no findings, "issues_found" if findings exist.
+SOURCE = "codex" if Codex ran, "claude" if subagent ran.
+
+**Cleanup:** Run \`rm -f "$TMPERR_PV"\` after processing (if Codex was used).
 
 ---`;
 }
@@ -2542,7 +2787,17 @@ ${slopItems}
 Source: [OpenAI "Designing Delightful Frontends with GPT-5.4"](https://developers.openai.com/blog/designing-delightful-frontends-with-gpt-5-4) (Mar 2026) + gstack design methodology.`;
 }
 
+function generateSlugEval(ctx: TemplateContext): string {
+  return `eval "$(${ctx.paths.binDir}/gstack-slug 2>/dev/null)"`;
+}
+
+function generateSlugSetup(ctx: TemplateContext): string {
+  return `eval "$(${ctx.paths.binDir}/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG`;
+}
+
 const RESOLVERS: Record<string, (ctx: TemplateContext) => string> = {
+  SLUG_EVAL: generateSlugEval,
+  SLUG_SETUP: generateSlugSetup,
   COMMAND_REFERENCE: generateCommandReference,
   SNAPSHOT_FLAGS: generateSnapshotFlags,
   PREAMBLE: generatePreamble,
@@ -2563,9 +2818,11 @@ const RESOLVERS: Record<string, (ctx: TemplateContext) => string> = {
   SPEC_REVIEW_LOOP: generateSpecReviewLoop,
   DESIGN_SKETCH: generateDesignSketch,
   BENEFITS_FROM: generateBenefitsFrom,
+  CODEX_SECOND_OPINION: generateCodexSecondOpinion,
   CODEX_REVIEW_STEP: generateAdversarialStep,
   ADVERSARIAL_STEP: generateAdversarialStep,
   DEPLOY_BOOTSTRAP: generateDeployBootstrap,
+  CODEX_PLAN_REVIEW: generateCodexPlanReview,
 };
 
 // ─── Codex Helpers ───────────────────────────────────────────
