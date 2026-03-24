@@ -90,22 +90,16 @@ export const AgentList: React.FC = () => {
   }, [setAgents]);
   
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-      <div className="flex items-center gap-2 mb-4">
-        <FiCpu className="w-5 h-5 text-gray-400" />
-        <h2 className="text-lg font-semibold text-gray-800">Agent 状态</h2>
-      </div>
+    <div className="space-y-3">
       {agents.length === 0 ? (
-        <div className="text-center py-8 text-gray-400">
+        <div className="text-center py-6 text-slate-400">
           <FiCpu className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">加载中...</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {agents.map((agent) => (
-            <AgentCard key={agent.id || agent.name} agent={agent} />
-          ))}
-        </div>
+        agents.map((agent) => (
+          <AgentCard key={agent.id || agent.name} agent={agent} />
+        ))
       )}
     </div>
   );
