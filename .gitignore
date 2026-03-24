@@ -22,6 +22,7 @@ bun.lock
 multi-agent-command-center/venv/
 multi-agent-command-center/*.db
 multi-agent-command-center/*.log
+multi-agent-command-center/*.pid
 multi-agent-command-center/backend/__pycache__/
 multi-agent-command-center/backend/**/__pycache__/
 multi-agent-command-center/backend/**/*.pyc
