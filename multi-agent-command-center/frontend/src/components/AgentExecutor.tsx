@@ -29,20 +29,27 @@ export const AgentExecutor: React.FC = () => {
   const [result, setResult] = useState<ExecutionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showNextStep, setShowNextStep] = useState(false);
+  const [isLoadingAgents, setIsLoadingAgents] = useState(true);
 
   useEffect(() => {
     const fetchAgents = async () => {
+      setIsLoadingAgents(true);
       try {
         const data = await api.getAgents();
+        console.log('Fetched agents:', data);
         setAgents(data);
       } catch (err) {
         console.error('Failed to fetch agents:', err);
+      } finally {
+        setIsLoadingAgents(false);
       }
     };
     fetchAgents();
   }, []);
 
   const handleExecute = async () => {
+    console.log('handleExecute called', { selectedAgent, userIdea, isExecuting });
+    
     if (!userIdea.trim()) {
       setError('请输入您的想法');
       return;
@@ -54,10 +61,13 @@ export const AgentExecutor: React.FC = () => {
     setShowNextStep(false);
 
     try {
+      console.log('Calling API with:', { selectedAgent, userIdea });
       const data = await api.executeAgent(selectedAgent, { user_idea: userIdea });
+      console.log('API response:', data);
       setResult(data);
       setTimeout(() => setShowNextStep(true), 500);
     } catch (err: any) {
+      console.error('API error:', err);
       setError(err.message || '执行失败');
     } finally {
       setIsExecuting(false);
@@ -83,36 +93,47 @@ export const AgentExecutor: React.FC = () => {
           <h3 className="font-semibold text-white">选择 Agent</h3>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          {agents.map((agent) => (
-            <div
-              key={agent.name}
-              onClick={() => !isExecuting && setSelectedAgent(agent.name)}
-              className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 ${
-                selectedAgent === agent.name
-                  ? 'border-blue-400/50 bg-blue-500/10 shadow-lg shadow-blue-500/10'
-                  : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20'
-              } ${isExecuting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`p-1.5 rounded-lg ${agent.name === 'product_thinker' ? 'bg-blue-500/20' : 'bg-purple-500/20'}`}>
-                  {agent.name === 'product_thinker' ? (
-                    <FiFileText className="w-4 h-4 text-blue-300" />
-                  ) : (
-                    <FiTarget className="w-4 h-4 text-purple-300" />
-                  )}
-                </div>
-                <h4 className="font-semibold text-white">{agent.name === 'product_thinker' ? '产品思考者' : '战略规划师'}</h4>
-              </div>
-              <p className="text-sm text-white/50 line-clamp-2">{agent.description}</p>
-              <div className="flex flex-wrap gap-1 mt-2">
-                {agent.capabilities.slice(0, 2).map((cap) => (
-                  <span key={cap} className="px-2 py-0.5 bg-white/10 rounded-full text-xs text-white/50">
-                    {cap}
-                  </span>
-                ))}
-              </div>
+          {isLoadingAgents ? (
+            <div className="col-span-2 text-center py-8 text-white/50">
+              <FiLoader className="w-8 h-8 mx-auto mb-2 animate-spin" />
+              <p>加载 Agent 列表中...</p>
             </div>
-          ))}
+          ) : agents.length === 0 ? (
+            <div className="col-span-2 text-center py-8 text-white/50">
+              <p>没有可用的 Agent</p>
+            </div>
+          ) : (
+            agents.map((agent) => (
+              <div
+                key={agent.name}
+                onClick={() => !isExecuting && setSelectedAgent(agent.name)}
+                className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 ${
+                  selectedAgent === agent.name
+                    ? 'border-blue-400/50 bg-blue-500/10 shadow-lg shadow-blue-500/10'
+                    : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20'
+                } ${isExecuting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`p-1.5 rounded-lg ${agent.name === 'product_thinker' ? 'bg-blue-500/20' : 'bg-purple-500/20'}`}>
+                    {agent.name === 'product_thinker' ? (
+                      <FiFileText className="w-4 h-4 text-blue-300" />
+                    ) : (
+                      <FiTarget className="w-4 h-4 text-purple-300" />
+                    )}
+                  </div>
+                  <h4 className="font-semibold text-white">{agent.name === 'product_thinker' ? '产品思考者' : '战略规划师'}</h4>
+                </div>
+                <p className="text-sm text-white/50 line-clamp-2">{agent.description}</p>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {agent.capabilities.slice(0, 2).map((cap) => (
+                    <span key={cap} className="px-2 py-0.5 bg-white/10 rounded-full text-xs text-white/50">
+                      {cap}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
       

@@ -37,16 +37,26 @@ export const api = {
   },
 
   async executeAgent(agentName: string, context: Record<string, any>): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/agents/${agentName}/execute`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ context })
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to execute agent: ${response.status}`);
+    console.log('executeAgent called:', { agentName, context });
+    try {
+      const response = await fetch(`${API_BASE_URL}/agents/${agentName}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context })
+      });
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`Failed to execute agent: ${response.status} - ${errorText}`);
+      }
+      const json: ApiResponse<any> = await response.json();
+      console.log('Response data:', json);
+      return json.data;
+    } catch (error) {
+      console.error('executeAgent error:', error);
+      throw error;
     }
-    const json: ApiResponse<any> = await response.json();
-    return json.data;
   },
 
   // 工作流相关 API
