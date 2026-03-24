@@ -58,7 +58,7 @@ class Artifact(Base):
     name = Column(String(200), nullable=False)
     type = Column(String(50), nullable=False)       # document, code, image, etc.
     content = Column(Text, nullable=False)
-    metadata = Column(JSON, nullable=True)
+    meta_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     workflow_execution_id = Column(Integer, ForeignKey('workflow_executions.id'), nullable=True)
     

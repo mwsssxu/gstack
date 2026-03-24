@@ -2,7 +2,7 @@
 配置文件 - 多 Agent 协作指挥中心
 """
 
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 from typing import List
 
 class Settings(BaseSettings):
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # 数据库配置
     SQLITE_DATABASE_URL: str = "sqlite:///./command_center.db"
-    POSTGRESQL_DATABASE_URL: str = "postgresql://postgres:0okm9ijn@localhost:5432/command_center"
+    POSTGRESQL_DATABASE_URL: str = "postgresql://postgres:0okm9ijn@localhost:5432/postgres"
     MONGODB_DATABASE_URL: str = "mongodb://localhost:27017/command_center"
     
     # Redis 配置

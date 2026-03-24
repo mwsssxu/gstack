@@ -12,14 +12,18 @@ logger = logging.getLogger(__name__)
 # 根据配置选择数据库URL
 def get_database_url():
     """获取数据库URL"""
-    if "postgresql" in settings.POSTGRESQL_DATABASE_URL:
-        return settings.POSTGRESQL_DATABASE_URL
-    elif "mongodb" in settings.MONGODB_DATABASE_URL:
-        # MongoDB 需要特殊处理，这里返回 None 表示使用其他方式
-        return None
-    else:
-        # 默认使用 SQLite
-        return settings.SQLITE_DATABASE_URL
+    # 默认使用 SQLite，避免 PostgreSQL 连接问题
+    return settings.SQLITE_DATABASE_URL
+    
+    # 如果需要使用 PostgreSQL，取消下面的注释
+    # if "postgresql" in settings.POSTGRESQL_DATABASE_URL:
+    #     return settings.POSTGRESQL_DATABASE_URL
+    # elif "mongodb" in settings.MONGODB_DATABASE_URL:
+    #     # MongoDB 需要特殊处理，这里返回 None 表示使用其他方式
+    #     return None
+    # else:
+    #     # 默认使用 SQLite
+    #     return settings.SQLITE_DATABASE_URL
 
 # 创建数据库引擎
 database_url = get_database_url()
