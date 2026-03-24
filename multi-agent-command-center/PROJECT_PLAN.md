@@ -290,9 +290,13 @@ interface TaskProgress {
 
 **已完成内容：**
 - ProductThinker Agent 实现
+- StrategyPlanner Agent 实现
 - Agent 注册中心集成
 - 工作流执行 API
 - 前端 API 服务适配
+- 前端 Agent 执行界面
+- **LLM API 集成** (阿里云百炼 + OpenAI)
+- 回退机制 (LLM 失败时使用模拟响应)
 
 ### 第四阶段：生产就绪 (Week 7-8)
 - [ ] 容器化部署
