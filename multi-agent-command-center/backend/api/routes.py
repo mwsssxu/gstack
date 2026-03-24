@@ -10,8 +10,12 @@ from datetime import datetime
 from models import get_db
 from agents.product_thinker import ProductThinkerAgent
 from agents.strategy_planner import StrategyPlannerAgent
+from agents.paranoid_expert import ParanoidExpertAgent
+from agents.quality_expert import QualityExpertAgent
 from core.agent_registry import AgentRegistry
 from core.state_manager import StateManager
+from core.quality_workflow import QualityWorkflowEngine
+from core.event_bus import EventBus
 from services.session_service import SessionService
 from services.broadcast import manager as ws_manager
 import logging
@@ -23,6 +27,8 @@ logger = logging.getLogger(__name__)
 # 初始化全局组件
 agent_registry = AgentRegistry()
 state_manager = StateManager()
+event_bus = EventBus()
+quality_workflow = QualityWorkflowEngine(agent_registry, event_bus)
 
 # 注册默认 Agent
 product_thinker = ProductThinkerAgent()
@@ -30,6 +36,12 @@ agent_registry.register_agent(product_thinker, {"enabled": True, "priority": 1})
 
 strategy_planner = StrategyPlannerAgent()
 agent_registry.register_agent(strategy_planner, {"enabled": True, "priority": 2})
+
+paranoid_expert = ParanoidExpertAgent()
+agent_registry.register_agent(paranoid_expert, {"enabled": True, "priority": 3})
+
+quality_expert = QualityExpertAgent()
+agent_registry.register_agent(quality_expert, {"enabled": True, "priority": 4})
 
 # Pydantic 模型
 class WorkflowExecuteRequest(BaseModel):
@@ -187,9 +199,25 @@ async def get_workflow_states():
 
 @router.post("/workflows/execute")
 async def execute_workflow(request: WorkflowExecuteRequest):
-    """执行工作流"""
+    """执行完整工作流（带质量门禁）"""
     try:
-        # 简单工作流：执行 ProductThinker
+        # 执行质量门禁工作流
+        result = await quality_workflow.execute_full_workflow(
+            user_idea=request.user_idea,
+            session_id=request.workflow_id
+        )
+        return {
+            "status": "success" if result.get("status") == "completed" else "partial",
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"Workflow execution failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/workflows/quick")
+async def execute_quick_workflow(request: WorkflowExecuteRequest):
+    """执行快速工作流（仅产品思考者）"""
+    try:
         agent = agent_registry.get_agent("product_thinker")
         if not agent:
             raise HTTPException(status_code=404, detail="ProductThinker agent not found")
