@@ -1,64 +1,71 @@
 import React, { useEffect } from 'react';
 import { useStore } from '../store';
 import { api } from '../services/api';
-import { FiActivity, FiClock, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
+import { FiActivity, FiClock, FiCheckCircle, FiAlertTriangle, FiZap, FiTarget, FiCpu } from 'react-icons/fi';
 
 interface AgentCardProps {
-  agent: any; // TODO: Replace with proper type
+  agent: any;
 }
 
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'running':
-      return 'text-blue-500';
+      return 'text-blue-500 bg-blue-50';
     case 'completed':
-      return 'text-green-500';
+      return 'text-green-500 bg-green-50';
     case 'error':
-      return 'text-red-500';
+      return 'text-red-500 bg-red-50';
     default:
-      return 'text-gray-500';
+      return 'text-gray-500 bg-gray-50';
   }
 };
 
 const getStatusIcon = (status: string) => {
   switch (status) {
     case 'running':
-      return <FiActivity className="w-5 h-5" />;
+      return <FiActivity className="w-4 h-4 animate-pulse" />;
     case 'completed':
-      return <FiCheckCircle className="w-5 h-5" />;
+      return <FiCheckCircle className="w-4 h-4" />;
     case 'error':
-      return <FiAlertTriangle className="w-5 h-5" />;
+      return <FiAlertTriangle className="w-4 h-4" />;
     default:
-      return <FiClock className="w-5 h-5" />;
+      return <FiClock className="w-4 h-4" />;
   }
 };
 
 export const AgentCard: React.FC<AgentCardProps> = ({ agent }) => {
+  const isProductThinker = agent.name === 'product_thinker';
+  
   return (
-    <div className="bg-white rounded-lg shadow p-4 mb-4 border-l-4 border-primary-500">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-semibold text-gray-900">{agent.name}</h3>
-        <span className={`flex items-center ${getStatusColor(agent.status)}`}>
-          {getStatusIcon(agent.status)}
-          <span className="ml-1 capitalize">{agent.status}</span>
-        </span>
+    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start gap-3">
+        <div className={`p-2 rounded-lg ${isProductThinker ? 'bg-blue-100' : 'bg-purple-100'}`}>
+          {isProductThinker ? (
+            <FiZap className="w-5 h-5 text-blue-500" />
+          ) : (
+            <FiTarget className="w-5 h-5 text-purple-500" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800 truncate">
+              {isProductThinker ? '产品思考者' : '战略规划师'}
+            </h3>
+            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${getStatusColor(agent.status)}`}>
+              {getStatusIcon(agent.status)}
+              <span className="capitalize">{agent.status}</span>
+            </span>
+          </div>
+          <p className="text-gray-500 text-xs mt-1 line-clamp-2">{agent.description}</p>
+          <div className="flex flex-wrap gap-1 mt-2">
+            {agent.capabilities?.slice(0, 2).map((cap: string) => (
+              <span key={cap} className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-500">
+                {cap}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
-      <p className="text-gray-600 text-sm mb-3">{agent.description}</p>
-      <div className="flex flex-wrap gap-2 mb-2">
-        {agent.capabilities?.map((cap: string) => (
-          <span 
-            key={cap} 
-            className="px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-700"
-          >
-            {cap}
-          </span>
-        ))}
-      </div>
-      {agent.lastExecutionTime && (
-        <p className="text-gray-500 text-xs">
-          最后执行: {new Date(agent.lastExecutionTime).toLocaleString()}
-        </p>
-      )}
     </div>
   );
 };
@@ -78,21 +85,23 @@ export const AgentList: React.FC = () => {
     };
     
     fetchAgents();
-    
-    // 每30秒刷新一次
     const interval = setInterval(fetchAgents, 30000);
     return () => clearInterval(interval);
   }, [setAgents]);
   
   return (
-    <div className="bg-white rounded-lg shadow p-6 mb-6">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">
-        Agent 管理
-      </h2>
+    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+      <div className="flex items-center gap-2 mb-4">
+        <FiCpu className="w-5 h-5 text-gray-400" />
+        <h2 className="text-lg font-semibold text-gray-800">Agent 状态</h2>
+      </div>
       {agents.length === 0 ? (
-        <p className="text-gray-600">暂无 Agent 数据</p>
+        <div className="text-center py-8 text-gray-400">
+          <FiCpu className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">加载中...</p>
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {agents.map((agent) => (
             <AgentCard key={agent.id || agent.name} agent={agent} />
           ))}
