@@ -30,6 +30,59 @@ if [ ! -d "frontend/node_modules" ]; then
     exit 1
 fi
 
+# 检查服务是否正在运行
+check_services() {
+    BACKEND_RUNNING=false
+    FRONTEND_RUNNING=false
+    
+    if lsof -i :8000 -t > /dev/null 2>&1; then
+        BACKEND_RUNNING=true
+    fi
+    
+    if lsof -i :3000 -t > /dev/null 2>&1; then
+        FRONTEND_RUNNING=true
+    fi
+}
+
+# 停止服务
+stop_services() {
+    echo -e "${YELLOW}正在停止现有服务...${NC}"
+    
+    if [ -f "$PROJECT_ROOT/backend.pid" ]; then
+        BACKEND_PID=$(cat "$PROJECT_ROOT/backend.pid")
+        if kill -0 $BACKEND_PID 2>/dev/null; then
+            kill $BACKEND_PID 2>/dev/null || true
+            sleep 1
+        fi
+        rm -f "$PROJECT_ROOT/backend.pid"
+    fi
+    
+    if [ -f "$PROJECT_ROOT/frontend.pid" ]; then
+        FRONTEND_PID=$(cat "$PROJECT_ROOT/frontend.pid")
+        if kill -0 $FRONTEND_PID 2>/dev/null; then
+            kill $FRONTEND_PID 2>/dev/null || true
+            sleep 1
+        fi
+        rm -f "$PROJECT_ROOT/frontend.pid"
+    fi
+    
+    # 确保端口被释放
+    lsof -ti :8000 | xargs kill -9 2>/dev/null || true
+    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+    sleep 1
+    
+    echo -e "${GREEN}✓ 现有服务已停止${NC}"
+}
+
+# 检查服务状态
+check_services
+
+if [ "$BACKEND_RUNNING" = true ] || [ "$FRONTEND_RUNNING" = true ]; then
+    echo -e "${YELLOW}检测到服务正在运行${NC}"
+    stop_services
+    echo -e "${BLUE}正在重新启动服务...${NC}\n"
+fi
+
 # 启动后端服务
 echo -e "${BLUE}启动后端服务...${NC}"
 cd "$PROJECT_ROOT"
