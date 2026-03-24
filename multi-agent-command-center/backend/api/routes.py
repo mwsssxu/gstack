@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from models import get_db
 from agents.product_thinker import ProductThinkerAgent
+from agents.strategy_planner import StrategyPlannerAgent
 from core.agent_registry import AgentRegistry
 from core.state_manager import StateManager
 import logging
@@ -21,6 +22,9 @@ state_manager = StateManager()
 # 注册默认 Agent
 product_thinker = ProductThinkerAgent()
 agent_registry.register_agent(product_thinker, {"enabled": True, "priority": 1})
+
+strategy_planner = StrategyPlannerAgent()
+agent_registry.register_agent(strategy_planner, {"enabled": True, "priority": 2})
 
 # Pydantic 模型
 class WorkflowExecuteRequest(BaseModel):

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { AgentList } from '../components/AgentCard';
 import { WorkflowList } from '../components/WorkflowGraph';
 import { TaskList } from '../components/TaskProgress';
+import { AgentExecutor } from '../components/AgentExecutor';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 export const Dashboard: React.FC = () => {
@@ -15,9 +16,13 @@ export const Dashboard: React.FC = () => {
       </h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
+        {/* 左侧：执行器和任务进度 */}
+        <div className="lg:col-span-2 space-y-6">
+          <AgentExecutor />
           <WorkflowList />
         </div>
+        
+        {/* 右侧：Agent 列表和任务列表 */}
         <div>
           <AgentList />
           <TaskList />
