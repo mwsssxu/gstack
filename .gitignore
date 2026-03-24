@@ -14,3 +14,16 @@ bun.lock
 .env.local
 .env.*
 !.env.example
+
+# IDE
+.vscode/
+
+# Multi-Agent Command Center
+multi-agent-command-center/venv/
+multi-agent-command-center/*.db
+multi-agent-command-center/*.log
+multi-agent-command-center/backend/__pycache__/
+multi-agent-command-center/backend/**/__pycache__/
+multi-agent-command-center/backend/**/*.pyc
+multi-agent-command-center/frontend/node_modules/
+multi-agent-command-center/frontend/dist/
