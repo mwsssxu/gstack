@@ -39,7 +39,7 @@ check_services() {
         BACKEND_RUNNING=true
     fi
     
-    if lsof -i :3000 -t > /dev/null 2>&1; then
+    if lsof -i :3001 -t > /dev/null 2>&1; then
         FRONTEND_RUNNING=true
     fi
 }
@@ -68,7 +68,7 @@ stop_services() {
     
     # 确保端口被释放
     lsof -ti :8000 | xargs kill -9 2>/dev/null || true
-    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+    lsof -ti :3001 | xargs kill -9 2>/dev/null || true
     sleep 1
     
     echo -e "${GREEN}✓ 现有服务已停止${NC}"
@@ -106,7 +106,7 @@ echo -e "${GREEN}✓ 前端服务已启动 (PID: $FRONTEND_PID)${NC}"
 echo -e "\n${GREEN}🎉 多 Agent 协作指挥中心已成功启动！${NC}"
 echo -e "\n${BLUE}服务地址:${NC}"
 echo -e "  后端 API: ${YELLOW}http://localhost:8000${NC}"
-echo -e "  前端界面: ${YELLOW}http://localhost:3000${NC}"
+echo -e "  前端界面: ${YELLOW}http://localhost:3001${NC}"
 echo -e "\n${BLUE}日志文件:${NC}"
 echo -e "  后端日志: ${PROJECT_ROOT}/backend.log"
 echo -e "  前端日志: ${PROJECT_ROOT}/frontend.log"

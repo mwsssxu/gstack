@@ -40,13 +40,13 @@ cd gstack/multi-agent-command-center
 ./start-simple.sh
 ```
 
-访问 `http://localhost:3000` 查看界面。
+访问 `http://localhost:3001` 查看界面。
 
 详细安装指南请查看 [用户手册](docs/USER_MANUAL.md)。
 
 ### 服务地址
 
-- **前端界面**: http://localhost:3000
+- **前端界面**: http://localhost:3001
 - **后端 API**: http://localhost:8000
 - **API 文档**: http://localhost:8000/docs
 
@@ -128,7 +128,7 @@ npm run dev
 ```
 
 ### 5. 访问应用
-打开浏览器访问 `http://localhost:3000`
+打开浏览器访问 `http://localhost:3001`
 
 ## 资源需求
 

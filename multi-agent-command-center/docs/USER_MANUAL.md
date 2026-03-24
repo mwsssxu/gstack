@@ -21,7 +21,7 @@ cd multi-agent-command-center
 ./start-simple.sh
 ```
 
-然后访问 `http://localhost:3000` 即可使用。
+然后访问 `http://localhost:3001` 即可使用。
 
 ---
 
@@ -159,7 +159,7 @@ cd multi-agent-command-center/frontend
 npm run dev
 ```
 
-前端将在 `http://localhost:3000` 运行。
+前端将在 `http://localhost:3001` 运行。
 
 ### 停止服务
 
@@ -181,7 +181,7 @@ stop.bat
 
 ### 访问界面
 
-1. **前端界面**: `http://localhost:3000`
+1. **前端界面**: `http://localhost:3001`
    - 主仪表板
    - Agent 管理
    - 工作流监控

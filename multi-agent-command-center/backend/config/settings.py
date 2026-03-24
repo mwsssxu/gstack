@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # CORS 配置
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://127.0.0.1:3001"]
     
     # 数据库配置
     SQLITE_DATABASE_URL: str = "sqlite:///./command_center.db"

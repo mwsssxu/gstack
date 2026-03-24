@@ -116,7 +116,7 @@ start_frontend() {
     cd "$PROJECT_ROOT/frontend"
     
     # 启动前端开发服务器（后台运行）
-    echo "前端服务将在 http://localhost:3000 运行"
+    echo "前端服务将在 http://localhost:3001 运行"
     nohup npm run dev > frontend.log 2>&1 &
     FRONTEND_PID=$!
     
@@ -128,7 +128,7 @@ show_status() {
     echo -e "\n${GREEN}🎉 多 Agent 协作指挥中心已成功启动！${NC}"
     echo -e "\n${BLUE}服务地址:${NC}"
     echo -e "  后端 API: ${YELLOW}http://localhost:8000${NC}"
-    echo -e "  前端界面: ${YELLOW}http://localhost:3000${NC}"
+    echo -e "  前端界面: ${YELLOW}http://localhost:3001${NC}"
     echo -e "\n${BLUE}日志文件:${NC}"
     echo -e "  后端日志: ${PROJECT_ROOT}/backend.log"
     echo -e "  前端日志: ${PROJECT_ROOT}/frontend.log"
