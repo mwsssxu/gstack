@@ -31,6 +31,7 @@ export const AgentExecutor: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showNextStep, setShowNextStep] = useState(false);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   
   // 全局状态管理
   const updateAgentState = useStore((state) => state.updateAgent);
@@ -68,10 +69,18 @@ export const AgentExecutor: React.FC = () => {
     updateAgentState(selectedAgent, { status: 'running' as const });
 
     try {
-      console.log('Calling API with:', { selectedAgent, userIdea });
-      const data = await api.executeAgent(selectedAgent, { user_idea: userIdea });
+      console.log('Calling API with:', { selectedAgent, userIdea, currentSessionId });
+      const data = await api.executeAgent(selectedAgent, { 
+        user_idea: userIdea,
+        session_id: currentSessionId || undefined
+      });
       console.log('API response:', data);
       setResult(data);
+      
+      // 保存会话 ID
+      if (data.session_id) {
+        setCurrentSessionId(data.session_id);
+      }
       
       // 更新 Agent 状态为完成
       updateAgentState(selectedAgent, { status: 'completed' as const });
@@ -93,7 +102,18 @@ export const AgentExecutor: React.FC = () => {
       setSelectedAgent(nextAgent);
       setShowNextStep(false);
       setResult(null);
+      // 保持会话ID以继续执行
     }
+  };
+  
+  // 开始新会话
+  const handleNewSession = () => {
+    setCurrentSessionId(null);
+    setResult(null);
+    setError(null);
+    setShowNextStep(false);
+    setUserIdea('');
+    setSelectedAgent('product_thinker');
   };
 
   const selectedAgentInfo = agents.find(a => a.name === selectedAgent);

@@ -8,6 +8,42 @@ interface ApiResponse<T> {
   count?: number;
 }
 
+export interface Session {
+  session_id: string;
+  title: string;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Execution {
+  id: number;
+  agent_name: string;
+  step_index: number;
+  status: string;
+  user_input: string;
+  output_result: string;
+  output_type: string;
+  used_fallback: boolean;
+  execution_time: number;
+  started_at: string;
+  completed_at: string;
+}
+
+export interface SessionContext {
+  session_id: string;
+  title: string;
+  status: string;
+  created_at: string;
+  executions: Execution[];
+  messages: Array<{
+    role: string;
+    content: string;
+    agent_name: string;
+    created_at: string;
+  }>;
+}
+
 export const api = {
   // Agent 相关 API
   async getAgents(): Promise<AgentInfo[]> {
@@ -77,6 +113,92 @@ export const api = {
     });
     if (!response.ok) {
       throw new Error(`Failed to execute workflow: ${response.status}`);
+    }
+    const json: ApiResponse<any> = await response.json();
+    return json.data;
+  },
+
+  // ============ 会话管理 API ============
+
+  async createSession(title?: string): Promise<Session> {
+    const response = await fetch(`${API_BASE_URL}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title })
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to create session: ${response.status}`);
+    }
+    const json: ApiResponse<Session> = await response.json();
+    return json.data;
+  },
+
+  async listSessions(): Promise<Session[]> {
+    const response = await fetch(`${API_BASE_URL}/sessions`);
+    if (!response.ok) {
+      throw new Error(`Failed to list sessions: ${response.status}`);
+    }
+    const json: ApiResponse<Session[]> = await response.json();
+    return json.data || [];
+  },
+
+  async getSession(sessionId: string): Promise<SessionContext> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`);
+    if (!response.ok) {
+      throw new Error(`Failed to get session: ${response.status}`);
+    }
+    const json: ApiResponse<SessionContext> = await response.json();
+    return json.data;
+  },
+
+  async getSessionExecutions(sessionId: string): Promise<Execution[]> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/executions`);
+    if (!response.ok) {
+      throw new Error(`Failed to get executions: ${response.status}`);
+    }
+    const json: ApiResponse<Execution[]> = await response.json();
+    return json.data || [];
+  },
+
+  async pauseSession(sessionId: string): Promise<Session> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/pause`, {
+      method: 'POST'
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to pause session: ${response.status}`);
+    }
+    const json: ApiResponse<Session> = await response.json();
+    return json.data;
+  },
+
+  async completeSession(sessionId: string): Promise<Session> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/complete`, {
+      method: 'POST'
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to complete session: ${response.status}`);
+    }
+    const json: ApiResponse<Session> = await response.json();
+    return json.data;
+  },
+
+  async deleteSession(sessionId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete session: ${response.status}`);
+    }
+  },
+
+  async resumeExecution(sessionId: string, nextAgent?: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/sessions/resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, next_agent: nextAgent })
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to resume execution: ${response.status}`);
     }
     const json: ApiResponse<any> = await response.json();
     return json.data;

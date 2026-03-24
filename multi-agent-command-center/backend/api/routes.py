@@ -11,7 +11,10 @@ from agents.product_thinker import ProductThinkerAgent
 from agents.strategy_planner import StrategyPlannerAgent
 from core.agent_registry import AgentRegistry
 from core.state_manager import StateManager
+from services.session_service import SessionService
 import logging
+import time
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,16 @@ class WorkflowExecuteRequest(BaseModel):
 class AgentExecuteRequest(BaseModel):
     """Agent 执行请求"""
     context: Dict[str, Any]
+    session_id: Optional[str] = None  # 可选的会话ID
+
+class CreateSessionRequest(BaseModel):
+    """创建会话请求"""
+    title: Optional[str] = None
+
+class ResumeExecutionRequest(BaseModel):
+    """恢复执行请求"""
+    session_id: str
+    next_agent: Optional[str] = None
 
 router = APIRouter()
 
@@ -54,17 +67,83 @@ async def get_agent(agent_name: str):
     return {"status": "success", "data": agent.get_info()}
 
 @router.post("/agents/{agent_name}/execute")
-async def execute_agent(agent_name: str, request: AgentExecuteRequest):
+async def execute_agent(
+    agent_name: str,
+    request: AgentExecuteRequest,
+    db: Session = Depends(get_db)
+):
     """执行指定的 Agent"""
     agent = agent_registry.get_agent(agent_name)
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent {agent_name} not found")
     
+    # 初始化会话服务
+    session_service = SessionService(db)
+    
+    # 获取或创建会话
+    session = session_service.get_or_create_session(request.session_id)
+    
+    # 获取步骤索引
+    last_execution = session_service.get_last_execution(session.session_id)
+    step_index = (last_execution.step_index + 1) if last_execution else 0
+    
+    # 记录执行开始
+    user_idea = request.context.get("user_idea", "")
+    execution = session_service.record_execution(
+        session_id=session.session_id,
+        agent_name=agent_name,
+        user_input=user_idea,
+        step_index=step_index,
+        status='running'
+    )
+    
+    start_time = time.time()
+    
     try:
         result = await agent.execute(request.context)
+        
+        # 记录执行成功
+        execution_time = int((time.time() - start_time) * 1000)
+        output_type = 'design_document' if 'design_document' in result else 'implementation_plan'
+        output_result = result.get('design_document') or result.get('implementation_plan', '')
+        
+        session_service.update_execution(
+            execution_id=execution.id,
+            status='completed',
+            output_result=output_result,
+            output_type=output_type,
+            used_fallback=result.get('used_fallback', False),
+            execution_time=execution_time
+        )
+        
+        # 添加消息记录
+        session_service.add_message(
+            session_id=session.session_id,
+            role='user',
+            content=user_idea
+        )
+        session_service.add_message(
+            session_id=session.session_id,
+            role='assistant',
+            content=output_result,
+            agent_name=agent_name
+        )
+        
+        # 在结果中添加会话信息
+        result['session_id'] = session.session_id
+        result['step_index'] = step_index
+        
         return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"Agent execution failed: {e}")
+        
+        # 记录执行失败
+        session_service.update_execution(
+            execution_id=execution.id,
+            status='error',
+            error_message=str(e)
+        )
+        
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/agents/states")
@@ -113,3 +192,202 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json({"status": "received", "data": data})
     except WebSocketDisconnect:
         pass
+
+
+# ============ 会话管理路由 ============
+
+@router.post("/sessions")
+async def create_session(
+    request: CreateSessionRequest,
+    db: Session = Depends(get_db)
+):
+    """创建新会话"""
+    session_service = SessionService(db)
+    session = session_service.create_session(title=request.title)
+    return {
+        "status": "success",
+        "data": {
+            "session_id": session.session_id,
+            "title": session.title,
+            "status": session.status,
+            "created_at": session.created_at.isoformat() if session.created_at else None
+        }
+    }
+
+@router.get("/sessions")
+async def list_sessions(db: Session = Depends(get_db)):
+    """列出所有会话"""
+    session_service = SessionService(db)
+    sessions = session_service.list_sessions()
+    return {
+        "status": "success",
+        "data": [
+            {
+                "session_id": s.session_id,
+                "title": s.title,
+                "status": s.status,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+                "updated_at": s.updated_at.isoformat() if s.updated_at else None
+            }
+            for s in sessions
+        ]
+    }
+
+@router.get("/sessions/{session_id}")
+async def get_session(session_id: str, db: Session = Depends(get_db)):
+    """获取会话详情"""
+    session_service = SessionService(db)
+    context = session_service.get_session_context(session_id)
+    if not context:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    return {"status": "success", "data": context}
+
+@router.get("/sessions/{session_id}/executions")
+async def get_session_executions(session_id: str, db: Session = Depends(get_db)):
+    """获取会话的执行记录"""
+    session_service = SessionService(db)
+    executions = session_service.get_session_executions(session_id)
+    return {
+        "status": "success",
+        "data": [
+            {
+                "id": e.id,
+                "agent_name": e.agent_name,
+                "step_index": e.step_index,
+                "status": e.status,
+                "user_input": e.user_input,
+                "output_result": e.output_result,
+                "output_type": e.output_type,
+                "used_fallback": e.used_fallback,
+                "execution_time": e.execution_time,
+                "started_at": e.started_at.isoformat() if e.started_at else None,
+                "completed_at": e.completed_at.isoformat() if e.completed_at else None
+            }
+            for e in executions
+        ]
+    }
+
+@router.get("/sessions/{session_id}/messages")
+async def get_session_messages(session_id: str, db: Session = Depends(get_db)):
+    """获取会话的消息记录"""
+    session_service = SessionService(db)
+    messages = session_service.get_session_messages(session_id)
+    return {
+        "status": "success",
+        "data": [
+            {
+                "role": m.role,
+                "content": m.content,
+                "agent_name": m.agent_name,
+                "created_at": m.created_at.isoformat() if m.created_at else None
+            }
+            for m in messages
+        ]
+    }
+
+@router.post("/sessions/{session_id}/pause")
+async def pause_session(session_id: str, db: Session = Depends(get_db)):
+    """暂停会话"""
+    session_service = SessionService(db)
+    session = session_service.pause_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    return {"status": "success", "data": {"session_id": session.session_id, "status": session.status}}
+
+@router.post("/sessions/{session_id}/complete")
+async def complete_session(session_id: str, db: Session = Depends(get_db)):
+    """完成会话"""
+    session_service = SessionService(db)
+    session = session_service.complete_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    return {"status": "success", "data": {"session_id": session.session_id, "status": session.status}}
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str, db: Session = Depends(get_db)):
+    """删除会话"""
+    session_service = SessionService(db)
+    if not session_service.delete_session(session_id):
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    return {"status": "success", "message": "Session deleted"}
+
+@router.post("/sessions/resume")
+async def resume_execution(request: ResumeExecutionRequest, db: Session = Depends(get_db)):
+    """从上次执行恢复"""
+    session_service = SessionService(db)
+    context = session_service.get_session_context(request.session_id)
+    
+    if not context:
+        raise HTTPException(status_code=404, detail=f"Session {request.session_id} not found")
+    
+    # 获取最后一步执行
+    executions = context.get("executions", [])
+    if not executions:
+        raise HTTPException(status_code=400, detail="No executions found in session")
+    
+    last_execution = executions[-1]
+    
+    # 确定下一个 Agent
+    next_agent = request.next_agent
+    if not next_agent:
+        # 自动推断下一步
+        if last_execution["agent_name"] == "product_thinker":
+            next_agent = "strategy_planner"
+        else:
+            return {
+                "status": "success",
+                "data": {
+                    "message": "工作流已完成",
+                    "session_id": request.session_id,
+                    "last_execution": last_execution
+                }
+            }
+    
+    # 获取上一个输出作为下一个输入
+    last_output = last_execution.get("output_result", "")
+    
+    # 执行下一个 Agent
+    agent = agent_registry.get_agent(next_agent)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent {next_agent} not found")
+    
+    # 记录执行
+    step_index = last_execution["step_index"] + 1
+    execution = session_service.record_execution(
+        session_id=request.session_id,
+        agent_name=next_agent,
+        user_input=f"基于上一步结果: {last_output[:100]}...",
+        step_index=step_index,
+        status='running'
+    )
+    
+    start_time = time.time()
+    
+    try:
+        result = await agent.execute({"user_idea": last_output})
+        
+        execution_time = int((time.time() - start_time) * 1000)
+        output_type = 'implementation_plan' if 'implementation_plan' in result else 'design_document'
+        output_result = result.get('implementation_plan') or result.get('design_document', '')
+        
+        session_service.update_execution(
+            execution_id=execution.id,
+            status='completed',
+            output_result=output_result,
+            output_type=output_type,
+            used_fallback=result.get('used_fallback', False),
+            execution_time=execution_time
+        )
+        
+        result['session_id'] = request.session_id
+        result['step_index'] = step_index
+        
+        return {"status": "success", "data": result}
+        
+    except Exception as e:
+        session_service.update_execution(
+            execution_id=execution.id,
+            status='error',
+            error_message=str(e)
+        )
+        raise HTTPException(status_code=500, detail=str(e))
