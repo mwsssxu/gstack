@@ -4,6 +4,11 @@
 
 from pydantic_settings import BaseSettings
 from typing import List
+import os
+from dotenv import load_dotenv
+
+# 加载 .env 文件
+load_dotenv()
 
 class Settings(BaseSettings):
     # 服务器配置
@@ -25,9 +30,18 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = "re2019"
     REDIS_DB: int = 0
     
-    # LLM API 配置
-    ANTHROPIC_API_KEY: str = ""
+    # LLM API 配置 - 阿里云百炼 (主要)
+    DASHSCOPE_API_KEY: str = ""
+    DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    DASHSCOPE_MODEL: str = "qwen-plus"
+    
+    # LLM API 配置 - OpenAI/ModelScope (备用)
     OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = "https://api-inference.modelscope.cn/v1/"
+    OPENAI_MODEL: str = "Qwen/Qwen3.5-397B-A17B"
+    
+    # LLM 提供商选择: dashscope, openai
+    LLM_PROVIDER: str = "dashscope"
     
     # 存储配置
     ARTIFACTS_DIR: str = "~/.command-center/artifacts"

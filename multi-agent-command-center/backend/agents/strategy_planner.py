@@ -6,6 +6,7 @@
 from typing import Dict, Any
 import logging
 from agents.base_agent import BaseAgent
+from services.llm_service import get_llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,13 @@ class StrategyPlannerAgent(BaseAgent):
             description="根据设计文档制定详细的实施计划和技术路线图",
             capabilities=["plan_generation", "roadmap_creation", "task_breakdown"]
         )
+        self.llm = None  # 延迟初始化
+    
+    def _get_llm(self):
+        """获取 LLM 服务实例"""
+        if self.llm is None:
+            self.llm = get_llm_service()
+        return self.llm
     
     async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -37,8 +45,18 @@ class StrategyPlannerAgent(BaseAgent):
             if not design_document and not user_idea:
                 raise ValueError("设计文档或用户想法不能同时为空")
             
-            # 生成实施计划
-            implementation_plan = self._generate_implementation_plan(design_document or user_idea)
+            # 尝试使用 LLM API 生成实施计划
+            implementation_plan = None
+            llm_error = None
+            
+            try:
+                llm = self._get_llm()
+                implementation_plan = await llm.generate_implementation_plan(design_document or user_idea)
+                logger.info("使用 LLM API 生成实施计划成功")
+            except Exception as e:
+                llm_error = str(e)
+                logger.warning(f"LLM API 调用失败，使用模拟响应: {e}")
+                implementation_plan = self._generate_implementation_plan(design_document or user_idea)
             
             result = {
                 "agent_name": self.name,
@@ -52,6 +70,10 @@ class StrategyPlannerAgent(BaseAgent):
                     }
                 ]
             }
+            
+            if llm_error:
+                result["llm_error"] = llm_error
+                result["used_fallback"] = True
             
             logger.info(f"StrategyPlanner completed for idea: {(design_document or user_idea)[:50]}...")
             return result

@@ -6,6 +6,7 @@
 from typing import Dict, Any
 import logging
 from agents.base_agent import BaseAgent
+from services.llm_service import get_llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,13 @@ class ProductThinkerAgent(BaseAgent):
             description="帮助用户问对问题，生成设计文档",
             capabilities=["problem_analysis", "design_document_generation"]
         )
+        self.llm = None  # 延迟初始化
+    
+    def _get_llm(self):
+        """获取 LLM 服务实例"""
+        if self.llm is None:
+            self.llm = get_llm_service()
+        return self.llm
     
     async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -36,9 +44,18 @@ class ProductThinkerAgent(BaseAgent):
             if not user_idea:
                 raise ValueError("用户想法不能为空")
             
-            # 这里应该调用 LLM API 生成设计文档
-            # 为了演示，我们使用模拟响应
-            design_document = self._generate_design_document(user_idea)
+            # 尝试使用 LLM API 生成设计文档
+            design_document = None
+            llm_error = None
+            
+            try:
+                llm = self._get_llm()
+                design_document = await llm.generate_design_document(user_idea)
+                logger.info("使用 LLM API 生成设计文档成功")
+            except Exception as e:
+                llm_error = str(e)
+                logger.warning(f"LLM API 调用失败，使用模拟响应: {e}")
+                design_document = self._generate_design_document(user_idea)
             
             result = {
                 "agent_name": self.name,
@@ -52,6 +69,10 @@ class ProductThinkerAgent(BaseAgent):
                     }
                 ]
             }
+            
+            if llm_error:
+                result["llm_error"] = llm_error
+                result["used_fallback"] = True
             
             logger.info(f"ProductThinker completed for idea: {user_idea[:50]}...")
             return result
