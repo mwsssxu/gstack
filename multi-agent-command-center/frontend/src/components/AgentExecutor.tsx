@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useStore } from '../store';
 import { FiPlay, FiLoader, FiCheckCircle, FiAlertCircle, FiArrowRight, FiZap, FiFileText, FiTarget } from 'react-icons/fi';
 
 interface Agent {
@@ -30,6 +31,9 @@ export const AgentExecutor: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showNextStep, setShowNextStep] = useState(false);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
+  
+  // 全局状态管理
+  const updateAgentState = useStore((state) => state.updateAgent);
 
   useEffect(() => {
     const fetchAgents = async () => {
@@ -59,16 +63,26 @@ export const AgentExecutor: React.FC = () => {
     setError(null);
     setResult(null);
     setShowNextStep(false);
+    
+    // 更新 Agent 状态为运行中
+    updateAgentState(selectedAgent, { status: 'running' as const });
 
     try {
       console.log('Calling API with:', { selectedAgent, userIdea });
       const data = await api.executeAgent(selectedAgent, { user_idea: userIdea });
       console.log('API response:', data);
       setResult(data);
+      
+      // 更新 Agent 状态为完成
+      updateAgentState(selectedAgent, { status: 'completed' as const });
+      
       setTimeout(() => setShowNextStep(true), 500);
     } catch (err: any) {
       console.error('API error:', err);
       setError(err.message || '执行失败');
+      
+      // 更新 Agent 状态为错误
+      updateAgentState(selectedAgent, { status: 'error' as const });
     } finally {
       setIsExecuting(false);
     }
