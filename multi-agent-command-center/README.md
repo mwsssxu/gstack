@@ -2,6 +2,20 @@
 
 一个灵活、可扩展的多 Agent 协作指挥中心，支持动态添加 Agent、可视化工作流状态和任务进度监控。
 
+## 🎯 项目状态
+
+![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
+![Python](https://img.shields.io/badge/python-3.11+-green.svg)
+![Node](https://img.shields.io/badge/node-16+-green.svg)
+![License](https://img.shields.io/badge/license-MIT-orange.svg)
+
+### 开发进度
+
+- ✅ **第一阶段**: 核心引擎 (已完成)
+- ✅ **第二阶段**: 可视化界面 (已完成)
+- 🚧 **第三阶段**: 高级功能 (开发中)
+- 📅 **第四阶段**: 生产就绪 (计划中)
+
 ## 功能特性
 
 - **灵活的 Agent 管理**: 支持动态注册和卸载 Agent
@@ -9,6 +23,32 @@
 - **文档驱动协作**: 所有 Agent 通过持久化文档进行通信
 - **人类在环决策**: 关键节点支持用户确认和干预
 - **可扩展架构**: 易于添加新功能和集成外部服务
+
+## 快速开始
+
+### 最快启动方式
+
+```bash
+# 克隆项目
+git clone https://github.com/mwsssxu/gstack.git
+cd gstack/multi-agent-command-center
+
+# 一键启动（首次使用）
+./start.sh
+
+# 快速启动（环境已配置）
+./start-simple.sh
+```
+
+访问 `http://localhost:3000` 查看界面。
+
+详细安装指南请查看 [用户手册](docs/USER_MANUAL.md)。
+
+### 服务地址
+
+- **前端界面**: http://localhost:3000
+- **后端 API**: http://localhost:8000
+- **API 文档**: http://localhost:8000/docs
 
 ## 技术栈
 
