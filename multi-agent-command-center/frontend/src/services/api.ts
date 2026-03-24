@@ -204,6 +204,32 @@ export const api = {
     return json.data;
   },
 
+  async executeFullWorkflow(userIdea: string, workflowId?: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/workflows/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workflow_id: workflowId || 'default', user_idea: userIdea })
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to execute full workflow: ${response.status}`);
+    }
+    const json: ApiResponse<any> = await response.json();
+    return json.data;
+  },
+
+  async executeQuickWorkflow(userIdea: string, workflowId?: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/workflows/quick`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workflow_id: workflowId || 'default', user_idea: userIdea })
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to execute quick workflow: ${response.status}`);
+    }
+    const json: ApiResponse<any> = await response.json();
+    return json.data;
+  },
+
   // WebSocket 连接
   createWebSocket(): WebSocket {
     const ws = new WebSocket('ws://localhost:8000/api/ws');

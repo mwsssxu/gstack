@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useStore } from '../store';
-import { FiPlay, FiLoader, FiCheckCircle, FiAlertCircle, FiArrowRight, FiZap, FiFileText, FiTarget } from 'react-icons/fi';
+import { FiPlay, FiLoader, FiCheckCircle, FiAlertCircle, FiArrowRight, FiZap, FiFileText, FiTarget, FiShield, FiAward } from 'react-icons/fi';
 
 interface Agent {
   name: string;
@@ -25,6 +25,7 @@ interface ExecutionResult {
 export const AgentExecutor: React.FC = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>('product_thinker');
+  const [workflowMode, setWorkflowMode] = useState<'single' | 'full'>('single'); // 新增：工作流模式
   const [userIdea, setUserIdea] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [result, setResult] = useState<ExecutionResult | null>(null);
@@ -32,6 +33,7 @@ export const AgentExecutor: React.FC = () => {
   const [showNextStep, setShowNextStep] = useState(false);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [workflowProgress, setWorkflowProgress] = useState<string>('');
   
   // 全局状态管理
   const updateAgentState = useStore((state) => state.updateAgent);
@@ -53,7 +55,7 @@ export const AgentExecutor: React.FC = () => {
   }, []);
 
   const handleExecute = async () => {
-    console.log('handleExecute called', { selectedAgent, userIdea, isExecuting });
+    console.log('handleExecute called', { selectedAgent, userIdea, isExecuting, workflowMode });
     
     if (!userIdea.trim()) {
       setError('请输入您的想法');
@@ -69,11 +71,34 @@ export const AgentExecutor: React.FC = () => {
     updateAgentState(selectedAgent, { status: 'running' as const });
 
     try {
-      console.log('Calling API with:', { selectedAgent, userIdea, currentSessionId });
-      const data = await api.executeAgent(selectedAgent, { 
-        user_idea: userIdea,
-        session_id: currentSessionId || undefined
-      });
+      console.log('Calling API with:', { selectedAgent, userIdea, currentSessionId, workflowMode });
+      
+      let data;
+      if (workflowMode === 'full') {
+        // 执行完整工作流（带质量管理）
+        setWorkflowProgress('正在执行完整工作流...');
+        data = await api.executeFullWorkflow(userIdea, currentSessionId || undefined);
+        
+        // 更新所有参与 Agent 的状态
+        if (data.steps) {
+          for (const step of data.steps) {
+            updateAgentState(step.agent_name, { 
+              status: step.status === 'completed' ? 'completed' : 'error'
+            });
+          }
+        }
+        setWorkflowProgress(data.status === 'completed' ? '工作流完成！' : '工作流部分完成');
+      } else {
+        // 单个 Agent 执行
+        data = await api.executeAgent(selectedAgent, { 
+          user_idea: userIdea,
+          session_id: currentSessionId || undefined
+        });
+        
+        // 更新 Agent 状态为完成
+        updateAgentState(selectedAgent, { status: 'completed' as const });
+      }
+      
       console.log('API response:', data);
       setResult(data);
       
@@ -81,9 +106,6 @@ export const AgentExecutor: React.FC = () => {
       if (data.session_id) {
         setCurrentSessionId(data.session_id);
       }
-      
-      // 更新 Agent 状态为完成
-      updateAgentState(selectedAgent, { status: 'completed' as const });
       
       setTimeout(() => setShowNextStep(true), 500);
     } catch (err: any) {
@@ -94,6 +116,7 @@ export const AgentExecutor: React.FC = () => {
       updateAgentState(selectedAgent, { status: 'error' as const });
     } finally {
       setIsExecuting(false);
+      setWorkflowProgress('');
     }
   };
 
@@ -120,7 +143,54 @@ export const AgentExecutor: React.FC = () => {
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
-      {/* Agent 选择区域 */}
+      {/* 执行模式选择 */}
+      <div className="p-6 border-b border-white/10">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-1.5 h-5 bg-gradient-to-b from-purple-400 to-pink-500 rounded-full"></div>
+          <h3 className="font-semibold text-white">执行模式</h3>
+        </div>
+        
+        {/* 工作流模式选择 */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setWorkflowMode('single')}
+            className={`p-4 rounded-xl border transition-all duration-300 text-left ${
+              workflowMode === 'single'
+                ? 'bg-blue-500/20 border-blue-400/50 shadow-lg shadow-blue-500/10'
+                : 'bg-white/5 border-white/10 hover:bg-white/10'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <FiZap className={`w-5 h-5 ${workflowMode === 'single' ? 'text-blue-400' : 'text-white/50'}`} />
+              <span className={`font-medium ${workflowMode === 'single' ? 'text-white' : 'text-white/70'}`}>单个 Agent</span>
+            </div>
+            <p className="text-xs text-white/40">快速执行单个 Agent</p>
+          </button>
+          
+          <button
+            onClick={() => setWorkflowMode('full')}
+            className={`p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden ${
+              workflowMode === 'full'
+                ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-400/50 shadow-lg shadow-purple-500/10'
+                : 'bg-white/5 border-white/10 hover:bg-white/10'
+            }`}
+          >
+            {workflowMode === 'full' && (
+              <div className="absolute top-0 right-0 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs rounded-bl-lg">
+                推荐
+              </div>
+            )}
+            <div className="flex items-center gap-2 mb-1">
+              <FiShield className={`w-5 h-5 ${workflowMode === 'full' ? 'text-purple-400' : 'text-white/50'}`} />
+              <span className={`font-medium ${workflowMode === 'full' ? 'text-white' : 'text-white/70'}`}>完整工作流</span>
+            </div>
+            <p className="text-xs text-white/40">含审查+质量检查</p>
+          </button>
+        </div>
+      </div>
+      
+      {/* Agent 选择区域 - 仅在单个模式显示 */}
+      {workflowMode === 'single' && (
       <div className="p-6 border-b border-white/10">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-1.5 h-5 bg-gradient-to-b from-blue-400 to-purple-500 rounded-full"></div>
@@ -170,6 +240,7 @@ export const AgentExecutor: React.FC = () => {
           )}
         </div>
       </div>
+      )}
       
       {/* 输入区域 */}
       <div className="p-6 border-b border-white/10 bg-white/5">
