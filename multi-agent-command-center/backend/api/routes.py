@@ -6,31 +6,28 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from typing import List
 from sqlalchemy.orm import Session
 from models import get_db
-from core.agent_registry import AgentRegistry
-from core.state_manager import StateManager
-
-# 初始化全局组件
-agent_registry = AgentRegistry()
-state_manager = StateManager()
 
 router = APIRouter()
 
 # Agent 相关路由
 @router.get("/agents")
-async def list_agents(db: Session = Depends(get_db)):
+async def list_agents():
     """获取所有 Agent 列表"""
-    return agent_registry.list_agents()
+    # TODO: 实现 Agent 注册中心
+    return []
 
 @router.get("/agents/states")
 async def get_agent_states():
     """获取所有 Agent 状态"""
-    return state_manager.get_all_agent_states()
+    # TODO: 实现状态管理
+    return []
 
 # 工作流相关路由
 @router.get("/workflows/states")
 async def get_workflow_states():
     """获取所有工作流状态"""
-    return state_manager.get_all_workflow_states()
+    # TODO: 实现工作流状态查询
+    return []
 
 # WebSocket 路由
 @router.websocket("/ws")

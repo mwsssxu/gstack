@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-多 Agent 协作指挥中心 - 主入口文件
+简化版测试应用 - 多 Agent 协作指挥中心
 """
 
 import uvicorn
@@ -8,17 +8,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import settings
-from api.routes import router as api_router
-from models import init_db
 
 def create_app() -> FastAPI:
-    """创建 FastAPI 应用实例"""
-    # 初始化数据库
-    init_db()
-    
+    """创建简化版 FastAPI 应用实例"""
     app = FastAPI(
-        title="Multi-Agent Command Center",
-        description="多 Agent 协作指挥中心 API",
+        title="Multi-Agent Command Center Test",
+        description="多 Agent 协作指挥中心测试 API",
         version="0.1.0"
     )
     
@@ -31,17 +26,17 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     
-    # 注册路由
-    app.include_router(api_router, prefix="/api")
+    @app.get("/health")
+    async def health_check():
+        return {"status": "ok", "message": "Backend is running!"}
     
     return app
 
 if __name__ == "__main__":
-    print(f"Starting server on {settings.HOST}:{settings.PORT}")
     app = create_app()
     uvicorn.run(
         app,
         host=settings.HOST,
-        port=settings.PORT,
-        reload=False  # Disable reload for debugging
+        port=8001,  # 使用不同端口
+        reload=False
     )
