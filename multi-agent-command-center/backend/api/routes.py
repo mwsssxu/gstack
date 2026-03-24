@@ -6,12 +6,14 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPExce
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from datetime import datetime
 from models import get_db
 from agents.product_thinker import ProductThinkerAgent
 from agents.strategy_planner import StrategyPlannerAgent
 from core.agent_registry import AgentRegistry
 from core.state_manager import StateManager
 from services.session_service import SessionService
+from services.broadcast import manager as ws_manager
 import logging
 import time
 import uuid
@@ -97,6 +99,13 @@ async def execute_agent(
         status='running'
     )
     
+    # 广播执行开始事件
+    await ws_manager.broadcast_agent_status(agent_name, 'running', {
+        'session_id': session.session_id,
+        'step_index': step_index
+    })
+    await ws_manager.broadcast_execution_started(session.session_id, agent_name, step_index)
+    
     start_time = time.time()
     
     try:
@@ -133,6 +142,15 @@ async def execute_agent(
         result['session_id'] = session.session_id
         result['step_index'] = step_index
         
+        # 广播执行完成事件
+        result_summary = output_result[:100] + '...' if len(output_result) > 100 else output_result
+        await ws_manager.broadcast_agent_status(agent_name, 'completed', {
+            'session_id': session.session_id,
+            'step_index': step_index,
+            'execution_time': execution_time
+        })
+        await ws_manager.broadcast_execution_completed(session.session_id, agent_name, step_index, result_summary)
+        
         return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"Agent execution failed: {e}")
@@ -143,6 +161,13 @@ async def execute_agent(
             status='error',
             error_message=str(e)
         )
+        
+        # 广播执行错误事件
+        await ws_manager.broadcast_agent_status(agent_name, 'error', {
+            'session_id': session.session_id,
+            'error': str(e)
+        })
+        await ws_manager.broadcast_execution_error(session.session_id, agent_name, str(e))
         
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -181,17 +206,46 @@ async def execute_workflow(request: WorkflowExecuteRequest):
 
 # WebSocket 路由
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, session_id: Optional[str] = None):
     """WebSocket 实时通信端点"""
-    await websocket.accept()
+    await ws_manager.connect(websocket, session_id)
     try:
         while True:
             # 接收客户端消息
             data = await websocket.receive_json()
-            # 处理消息（这里可以扩展）
-            await websocket.send_json({"status": "received", "data": data})
+            
+            # 处理心跳
+            if data.get("type") == "heartbeat":
+                await ws_manager.send_to_connection(websocket, {
+                    "type": "heartbeat.ack",
+                    "data": {"timestamp": datetime.utcnow().isoformat()}
+                })
+                continue
+            
+            # 处理订阅会话
+            if data.get("type") == "subscribe.session":
+                sid = data.get("session_id")
+                if sid:
+                    ws_manager.connection_metadata[websocket]["session_id"] = sid
+                    if sid not in ws_manager.session_connections:
+                        ws_manager.session_connections[sid] = []
+                    ws_manager.session_connections[sid].append(websocket)
+                    await ws_manager.send_to_connection(websocket, {
+                        "type": "session.subscribed",
+                        "data": {"session_id": sid}
+                    })
+                continue
+            
+            # 其他消息类型
+            await ws_manager.send_to_connection(websocket, {
+                "type": "message.received",
+                "data": data
+            })
     except WebSocketDisconnect:
-        pass
+        ws_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        ws_manager.disconnect(websocket)
 
 
 # ============ 会话管理路由 ============

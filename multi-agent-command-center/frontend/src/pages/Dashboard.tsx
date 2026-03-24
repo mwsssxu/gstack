@@ -1,9 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AgentList } from '../components/AgentCard';
 import { AgentExecutor } from '../components/AgentExecutor';
-import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp } from 'react-icons/fi';
+import { ExecutionTimeline, HorizontalTimeline } from '../components/ExecutionTimeline';
+import { SessionHistory } from '../components/SessionHistory';
+import { ProgressBar, CircularProgress } from '../components/ProgressBar';
+import { StatsCards, MiniStats, ActivityIndicator } from '../components/StatsCards';
+import { useWebSocket } from '../hooks/useWebSocket';
+import { useStore } from '../store';
+import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff } from 'react-icons/fi';
 
 export const Dashboard: React.FC = () => {
+  const [showSessionHistory, setShowSessionHistory] = useState(false);
+  const { isReconnecting } = useWebSocket();
+  const agents = useStore((state) => state.agents);
+  const wsConnected = useStore((state) => state.wsConnected);
+  
+  // 计算统计数据
+  const stats = {
+    totalExecutions: agents.reduce((sum, a) => sum + (a.executionCount || 0), 0),
+    successRate: agents.length > 0 ? Math.round(agents.filter(a => a.status === 'completed').length / agents.length * 100) : 0,
+    avgExecutionTime: 5000, // 可从后端获取
+    activeAgents: agents.filter(a => a.status === 'running').length
+  };
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
       {/* 背景装饰 */}
@@ -32,6 +51,22 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* WebSocket 状态指示器 */}
+              <div className="flex items-center gap-2">
+                {wsConnected ? (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 rounded-full border border-emerald-400/30">
+                    <FiWifi className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs text-emerald-300">实时连接</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 rounded-full border border-red-400/30">
+                    <FiWifiOff className="w-4 h-4 text-red-400" />
+                    <span className="text-xs text-red-300">
+                      {isReconnecting ? '重连中...' : '已断开'}
+                    </span>
+                  </div>
+                )}
+              </div>
               <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/10">
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
                 <span className="text-sm text-white/70">系统运行中</span>
@@ -101,6 +136,9 @@ export const Dashboard: React.FC = () => {
           
           {/* 右侧：状态面板 */}
           <div className="lg:col-span-4 space-y-6">
+            {/* 统计卡片 */}
+            <StatsCards stats={stats} />
+            
             {/* Agent 状态 */}
             <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
               <div className="px-5 py-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-b border-white/10">
@@ -127,11 +165,14 @@ export const Dashboard: React.FC = () => {
                 </div>
               </div>
               <div className="p-4 space-y-3">
-                <button className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-blue-500/20 to-blue-600/10 hover:from-blue-500/30 hover:to-blue-600/20 text-blue-300 transition-all border border-blue-500/20 group">
-                  <div className="p-2 bg-blue-500/20 rounded-lg group-hover:bg-blue-500/30 transition-colors">
-                    <FiFileText className="w-5 h-5" />
+                <button 
+                  onClick={() => setShowSessionHistory(!showSessionHistory)}
+                  className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-cyan-500/20 to-cyan-600/10 hover:from-cyan-500/30 hover:to-cyan-600/20 text-cyan-300 transition-all border border-cyan-500/20 group"
+                >
+                  <div className="p-2 bg-cyan-500/20 rounded-lg group-hover:bg-cyan-500/30 transition-colors">
+                    <FiTrendingUp className="w-5 h-5" />
                   </div>
-                  <span className="font-medium">新建设计文档</span>
+                  <span className="font-medium">查看会话历史</span>
                 </button>
                 <button className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-600/10 hover:from-purple-500/30 hover:to-purple-600/20 text-purple-300 transition-all border border-purple-500/20 group">
                   <div className="p-2 bg-purple-500/20 rounded-lg group-hover:bg-purple-500/30 transition-colors">
@@ -141,6 +182,13 @@ export const Dashboard: React.FC = () => {
                 </button>
               </div>
             </div>
+            
+            {/* 会话历史面板 */}
+            {showSessionHistory && (
+              <SessionHistory 
+                onNewSession={() => setShowSessionHistory(false)}
+              />
+            )}
           </div>
         </div>
       </main>
