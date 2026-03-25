@@ -12,6 +12,8 @@ from agents.product_thinker import ProductThinkerAgent
 from agents.strategy_planner import StrategyPlannerAgent
 from agents.paranoid_expert import ParanoidExpertAgent
 from agents.quality_expert import QualityExpertAgent
+from agents.architect import ArchitectAgent
+from agents.release_expert import ReleaseExpertAgent
 from core.agent_registry import AgentRegistry
 from core.state_manager import StateManager
 from core.quality_workflow import QualityWorkflowEngine
@@ -42,6 +44,12 @@ agent_registry.register_agent(paranoid_expert, {"enabled": True, "priority": 3})
 
 quality_expert = QualityExpertAgent()
 agent_registry.register_agent(quality_expert, {"enabled": True, "priority": 4})
+
+architect = ArchitectAgent()
+agent_registry.register_agent(architect, {"enabled": True, "priority": 5})
+
+release_expert = ReleaseExpertAgent()
+agent_registry.register_agent(release_expert, {"enabled": True, "priority": 6})
 
 # Pydantic 模型
 class WorkflowExecuteRequest(BaseModel):

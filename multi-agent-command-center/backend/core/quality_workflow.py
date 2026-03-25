@@ -39,12 +39,13 @@ class QualityWorkflowEngine:
     """
     质量门禁工作流引擎
     
-    实现完整的质量管理工作流：
+    实现完整的质量管理工作流（基于 gstack 方法论）：
     1. 产品思考者 → 设计文档
-    2. 偏执专家审查 → 审核报告
-    3. 质量专家测试 → 质量报告
-    4. 反馈循环 → 修订和完善
-    5. 最终发布
+    2. 架构设计师 → 架构计划
+    3. 偏执专家审查 → 审核报告
+    4. 质量专家测试 → 质量报告
+    5. 反馈循环 → 修订和完善
+    6. 发布专家 → 安全发布
     """
     
     def __init__(self, agent_registry: AgentRegistry, event_bus: EventBus):
@@ -85,15 +86,14 @@ class QualityWorkflowEngine:
         session_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        执行完整工作流
+        执行完整工作流（基于 gstack 方法论）
         
         流程：
-        1. 产品思考者生成设计文档
-        2. 偏执专家审查
-        3. 如果不通过，反馈给产品思考者修订
-        4. 质量专家测试
-        5. 如果不通过，反馈修订
-        6. 最终通过或失败
+        1. 产品思考者 → 设计文档
+        2. 架构设计师 → 架构计划
+        3. 偏执专家审查 → 审核报告
+        4. 质量专家测试 → 质量报告
+        5. 发布专家 → 安全发布
         """
         # 创建协作上下文
         ctx = CollaborationContext(session_id or datetime.utcnow().strftime("%Y%m%d%H%M%S"))
@@ -104,17 +104,25 @@ class QualityWorkflowEngine:
             "status": "running",
             "steps": [],
             "final_result": None,
-            "revisions": 0
+            "revisions": 0,
+            "execution_log": []
         }
+        
+        def log_step(step_name: str, status: str, details: str = ""):
+            entry = f"[{datetime.utcnow().isoformat()}] {step_name}: {status} {details}"
+            workflow_result["execution_log"].append(entry)
+            logger.info(entry)
         
         try:
             # Step 1: 产品思考者
+            log_step("产品思考者", "开始", f"输入: {user_idea[:50]}...")
             step_result = await self._execute_step(
                 "product_thinker",
                 {"user_idea": user_idea, "session_id": ctx.session_id},
                 ctx
             )
             workflow_result["steps"].append(step_result)
+            log_step("产品思考者", step_result.get("status", "unknown"))
             
             if step_result.get("status") != "completed":
                 workflow_result["status"] = "failed"
@@ -123,11 +131,24 @@ class QualityWorkflowEngine:
             # 保存设计文档
             design_doc = step_result.get("design_document", "")
             ctx.add_document("design_document", {"content": design_doc}, "product_thinker")
+            await ws_manager.broadcast_task_progress(ctx.session_id, 15, "设计文档生成完成")
             
-            # 广播进度
-            await ws_manager.broadcast_task_progress(ctx.session_id, 25, "设计文档生成完成")
+            # Step 2: 架构设计师
+            log_step("架构设计师", "开始")
+            arch_result = await self._execute_step(
+                "architect",
+                {"design_document": design_doc, "session_id": ctx.session_id},
+                ctx
+            )
+            workflow_result["steps"].append(arch_result)
+            log_step("架构设计师", arch_result.get("status", "unknown"))
             
-            # Step 2: 偏执专家审查（带反馈循环）
+            architecture_plan = arch_result.get("architecture_plan", "")
+            ctx.add_document("architecture_plan", {"content": architecture_plan}, "architect")
+            await ws_manager.broadcast_task_progress(ctx.session_id, 30, "架构设计完成")
+            
+            # Step 3: 偏执专家审查（带反馈循环）
+            log_step("偏执专家", "开始审查")
             review_passed = False
             revision_count = 0
             
@@ -141,11 +162,13 @@ class QualityWorkflowEngine:
                 
                 if review_result.get("approved", False):
                     review_passed = True
+                    log_step("偏执专家", "通过", f"风险等级: {review_result.get('risk_level', 'unknown')}")
                     ctx.add_review("paranoid_expert", "design_document", 
                                    review_result.get("issues", []), True)
                 else:
                     revision_count += 1
                     workflow_result["revisions"] = revision_count
+                    log_step("偏执专家", f"需要修订", f"发现 {len(review_result.get('issues', []))} 个问题")
                     
                     # 反馈给产品思考者修订
                     revision_result = await self._request_revision(
@@ -163,7 +186,7 @@ class QualityWorkflowEngine:
                     
                     await ws_manager.broadcast_task_progress(
                         ctx.session_id, 
-                        25 + revision_count * 10,
+                        30 + revision_count * 5,
                         f"修订中 (第{revision_count}次)"
                     )
             
@@ -172,9 +195,11 @@ class QualityWorkflowEngine:
             if not review_passed:
                 workflow_result["status"] = "failed"
                 workflow_result["reason"] = "审查未通过，超过最大修订次数"
+                log_step("工作流", "失败", "超过最大修订次数")
                 return workflow_result
             
-            # Step 3: 质量专家测试
+            # Step 4: 质量专家测试
+            log_step("质量专家", "开始测试")
             quality_result = await self._execute_step(
                 "quality_expert",
                 {"design_document": design_doc, "session_id": ctx.session_id, "test_mode": "standard"},
@@ -183,30 +208,55 @@ class QualityWorkflowEngine:
             workflow_result["steps"].append(quality_result)
             
             quality_score = quality_result.get("quality_score", 0)
+            log_step("质量专家", quality_result.get("status", "unknown"), f"分数: {quality_score}")
             ctx.add_quality_report("quality_expert", quality_result)
             
-            await ws_manager.broadcast_task_progress(ctx.session_id, 75, "质量测试完成")
+            await ws_manager.broadcast_task_progress(ctx.session_id, 70, "质量测试完成")
             
             # 检查质量门禁
             gate = self._quality_gates["quality_check"]
             if quality_score < gate.min_score:
                 workflow_result["status"] = "failed"
                 workflow_result["reason"] = f"质量分数 {quality_score} 低于阈值 {gate.min_score}"
+                log_step("工作流", "失败", f"质量分数不足: {quality_score}")
                 return workflow_result
             
-            # Step 4: 最终汇总
+            # Step 5: 发布专家
+            log_step("发布专家", "开始发布准备")
+            release_result = await self._execute_step(
+                "release_expert",
+                {
+                    "design_document": design_doc,
+                    "architecture_plan": architecture_plan,
+                    "quality_score": quality_score,
+                    "review_issues": review_result.get("issues", []) if review_result else [],
+                    "session_id": ctx.session_id
+                },
+                ctx
+            )
+            workflow_result["steps"].append(release_result)
+            log_step("发布专家", release_result.get("status", "unknown"), 
+                     f"就绪: {release_result.get('is_ready', False)}")
+            
+            await ws_manager.broadcast_task_progress(ctx.session_id, 90, "发布准备完成")
+            
+            # 最终汇总
             final_result = {
                 "session_id": ctx.session_id,
                 "design_document": design_doc,
+                "architecture_plan": architecture_plan,
                 "quality_score": quality_score,
-                "review_issues": workflow_result["steps"][1].get("issues", []) if len(workflow_result["steps"]) > 1 else [],
+                "review_issues": review_result.get("issues", []) if review_result else [],
                 "test_cases": quality_result.get("test_cases", []),
+                "is_ready": release_result.get("is_ready", False),
+                "release_report": release_result.get("release_report", ""),
                 "revisions": revision_count,
                 "completed_at": datetime.utcnow().isoformat()
             }
             
-            workflow_result["status"] = "completed"
+            workflow_result["status"] = "completed" if release_result.get("is_ready") else "completed_with_warnings"
             workflow_result["final_result"] = final_result
+            log_step("工作流", "完成", f"状态: {workflow_result['status']}")
             
             await ws_manager.broadcast_task_progress(ctx.session_id, 100, "工作流完成")
             
