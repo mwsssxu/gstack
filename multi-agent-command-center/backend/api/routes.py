@@ -18,6 +18,7 @@ from core.agent_registry import AgentRegistry
 from core.state_manager import StateManager
 from core.quality_workflow import QualityWorkflowEngine
 from core.event_bus import EventBus
+from core.agent_collaboration import collaboration_manager, HandoffCondition
 from services.session_service import SessionService
 from services.broadcast import manager as ws_manager
 import logging
@@ -481,3 +482,83 @@ async def resume_execution(request: ResumeExecutionRequest, db: Session = Depend
             error_message=str(e)
         )
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============== 协作配置 API ==============
+
+@router.get("/collaboration/workflow")
+async def get_workflow_path():
+    """
+    获取完整工作流路径
+    
+    返回 Agent 之间的协作关系和交接路径
+    """
+    workflow_path = collaboration_manager.get_workflow_path()
+    visualization = collaboration_manager.visualize_workflow()
+    
+    return {
+        "status": "success",
+        "data": {
+            "workflow_path": workflow_path,
+            "visualization": visualization
+        }
+    }
+
+
+@router.get("/collaboration/agent/{agent_name}")
+async def get_agent_collaboration(agent_name: str):
+    """
+    获取指定 Agent 的协作配置
+    
+    包括：
+    - inputs_from: 谁可以发消息给我
+    - outputs_to: 我完成后交给谁
+    - feedback_to: 修订时反馈给谁
+    """
+    config = collaboration_manager.get_config(agent_name)
+    
+    if not config:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+    
+    return {
+        "status": "success",
+        "data": {
+            "name": config.name,
+            "display_name": config.display_name,
+            "responsibility": config.responsibility,
+            "inputs_from": config.inputs_from,
+            "outputs_to": [
+                {
+                    "target": h.target_agent,
+                    "condition": h.condition.value,
+                    "feedback_agent": h.feedback_agent,
+                    "description": h.description
+                }
+                for h in config.outputs_to
+            ],
+            "feedback_to": config.feedback_to,
+            "quality_gate": config.quality_gate
+        }
+    }
+
+
+@router.get("/collaboration/next/{agent_name}")
+async def get_next_agent(agent_name: str, success: bool = True):
+    """
+    获取下一个要执行的 Agent
+    
+    Args:
+        agent_name: 当前 Agent 名称
+        success: 当前任务是否成功
+    """
+    condition = HandoffCondition.ON_SUCCESS if success else HandoffCondition.ON_REJECTED
+    next_agent = collaboration_manager.get_next_agent(agent_name, condition)
+    
+    return {
+        "status": "success",
+        "data": {
+            "current_agent": agent_name,
+            "success": success,
+            "next_agent": next_agent
+        }
+    }
