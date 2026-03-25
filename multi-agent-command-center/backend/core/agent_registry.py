@@ -29,12 +29,4 @@ class AgentRegistry:
     
     def list_agents(self) -> List[dict]:
         """列出所有 Agent 信息"""
-        return [
-            {
-                "name": name,
-                "description": agent.description,
-                "capabilities": agent.capabilities,
-                "config": self.agent_configs[name]
-            }
-            for name, agent in self.agents.items()
-        ]
+        return [agent.get_info() for agent in self.agents.values()]

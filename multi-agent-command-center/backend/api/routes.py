@@ -33,24 +33,37 @@ state_manager = StateManager()
 event_bus = EventBus()
 quality_workflow = QualityWorkflowEngine(agent_registry, event_bus)
 
-# 注册默认 Agent
+# 注册默认 Agent 并设置协作配置
+def _register_agent_with_collab(agent, config: dict):
+    """注册 Agent 并设置协作配置"""
+    agent_registry.register_agent(agent, config)
+    # 从协作管理器获取配置
+    collab_config = collaboration_manager.get_config(agent.name)
+    if collab_config:
+        agent.inputs_from = collab_config.inputs_from
+        agent.outputs_to = [h.target_agent for h in collab_config.outputs_to]
+        agent.feedback_to = collab_config.feedback_to
+        print(f"[协作配置] Agent {agent.name}: inputs={agent.inputs_from}, outputs={agent.outputs_to}")
+    else:
+        print(f"[协作配置] Agent {agent.name}: 无配置")
+
 product_thinker = ProductThinkerAgent()
-agent_registry.register_agent(product_thinker, {"enabled": True, "priority": 1})
+_register_agent_with_collab(product_thinker, {"enabled": True, "priority": 1})
 
 strategy_planner = StrategyPlannerAgent()
-agent_registry.register_agent(strategy_planner, {"enabled": True, "priority": 2})
+_register_agent_with_collab(strategy_planner, {"enabled": True, "priority": 2})
 
 paranoid_expert = ParanoidExpertAgent()
-agent_registry.register_agent(paranoid_expert, {"enabled": True, "priority": 3})
+_register_agent_with_collab(paranoid_expert, {"enabled": True, "priority": 3})
 
 quality_expert = QualityExpertAgent()
-agent_registry.register_agent(quality_expert, {"enabled": True, "priority": 4})
+_register_agent_with_collab(quality_expert, {"enabled": True, "priority": 4})
 
 architect = ArchitectAgent()
-agent_registry.register_agent(architect, {"enabled": True, "priority": 5})
+_register_agent_with_collab(architect, {"enabled": True, "priority": 5})
 
 release_expert = ReleaseExpertAgent()
-agent_registry.register_agent(release_expert, {"enabled": True, "priority": 6})
+_register_agent_with_collab(release_expert, {"enabled": True, "priority": 6})
 
 # Pydantic 模型
 class WorkflowExecuteRequest(BaseModel):

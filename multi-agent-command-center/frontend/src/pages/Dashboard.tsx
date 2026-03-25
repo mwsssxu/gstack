@@ -5,12 +5,14 @@ import { ExecutionTimeline, HorizontalTimeline } from '../components/ExecutionTi
 import { SessionHistory } from '../components/SessionHistory';
 import { ProgressBar, CircularProgress } from '../components/ProgressBar';
 import { StatsCards, MiniStats, ActivityIndicator } from '../components/StatsCards';
+import { CollaborationFlow } from '../components/CollaborationFlow';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useStore } from '../store';
-import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff } from 'react-icons/fi';
+import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff, FiGitlab } from 'react-icons/fi';
 
 export const Dashboard: React.FC = () => {
   const [showSessionHistory, setShowSessionHistory] = useState(false);
+  const [showCollaboration, setShowCollaboration] = useState(false);
   const { isReconnecting } = useWebSocket();
   const agents = useStore((state) => state.agents);
   const wsConnected = useStore((state) => state.wsConnected);
@@ -174,11 +176,14 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <span className="font-medium">查看会话历史</span>
                 </button>
-                <button className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-600/10 hover:from-purple-500/30 hover:to-purple-600/20 text-purple-300 transition-all border border-purple-500/20 group">
-                  <div className="p-2 bg-purple-500/20 rounded-lg group-hover:bg-purple-500/30 transition-colors">
-                    <FiPlay className="w-5 h-5" />
+                <button 
+                  onClick={() => setShowCollaboration(!showCollaboration)}
+                  className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-green-500/20 to-green-600/10 hover:from-green-500/30 hover:to-green-600/20 text-green-300 transition-all border border-green-500/20 group"
+                >
+                  <div className="p-2 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
+                    <FiGitlab className="w-5 h-5" />
                   </div>
-                  <span className="font-medium">运行完整工作流</span>
+                  <span className="font-medium">{showCollaboration ? '隐藏协作配置' : '查看协作配置'}</span>
                 </button>
               </div>
             </div>
@@ -191,6 +196,13 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* 协作配置面板 */}
+        {showCollaboration && (
+          <div className="mt-6">
+            <CollaborationFlow />
+          </div>
+        )}
       </main>
 
       {/* 页脚 */}

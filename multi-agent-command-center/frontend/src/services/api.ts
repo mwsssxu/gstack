@@ -230,6 +230,42 @@ export const api = {
     return json.data;
   },
 
+  // 协作配置 API
+  async getCollaborationWorkflow(): Promise<{ workflow_path: any[]; visualization: string }> {
+    const response = await fetch(`${API_BASE_URL}/collaboration/workflow`);
+    if (!response.ok) {
+      throw new Error(`Failed to get collaboration workflow: ${response.status}`);
+    }
+    const json: ApiResponse<{ workflow_path: any[]; visualization: string }> = await response.json();
+    return json.data;
+  },
+
+  async getAgentCollaboration(agentName: string): Promise<{
+    name: string;
+    display_name: string;
+    responsibility: string;
+    inputs_from: string[];
+    outputs_to: Array<{ target: string; condition: string; description: string }>;
+    feedback_to: string | null;
+    quality_gate: any;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/collaboration/agent/${agentName}`);
+    if (!response.ok) {
+      throw new Error(`Failed to get agent collaboration: ${response.status}`);
+    }
+    const json: ApiResponse<any> = await response.json();
+    return json.data;
+  },
+
+  async getNextAgent(agentName: string, success: boolean = true): Promise<string | null> {
+    const response = await fetch(`${API_BASE_URL}/collaboration/next/${agentName}?success=${success}`);
+    if (!response.ok) {
+      throw new Error(`Failed to get next agent: ${response.status}`);
+    }
+    const json: ApiResponse<{ current_agent: string; next_agent: string | null }> = await response.json();
+    return json.data.next_agent;
+  },
+
   // WebSocket 连接
   createWebSocket(): WebSocket {
     const ws = new WebSocket('ws://localhost:8000/api/ws');
