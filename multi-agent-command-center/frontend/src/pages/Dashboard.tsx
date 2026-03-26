@@ -6,13 +6,15 @@ import { SessionHistory } from '../components/SessionHistory';
 import { ProgressBar, CircularProgress } from '../components/ProgressBar';
 import { StatsCards, MiniStats, ActivityIndicator } from '../components/StatsCards';
 import { CollaborationFlow } from '../components/CollaborationFlow';
+import { AgentFlowGraph, WorkflowProgress } from '../components/AgentFlowGraph';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useStore } from '../store';
-import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff, FiGitlab } from 'react-icons/fi';
+import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff, FiGitlab, FiShare2 } from 'react-icons/fi';
 
 export const Dashboard: React.FC = () => {
   const [showSessionHistory, setShowSessionHistory] = useState(false);
   const [showCollaboration, setShowCollaboration] = useState(false);
+  const [showFlowGraph, setShowFlowGraph] = useState(false);
   const { isReconnecting } = useWebSocket();
   const agents = useStore((state) => state.agents);
   const wsConnected = useStore((state) => state.wsConnected);
@@ -177,6 +179,15 @@ export const Dashboard: React.FC = () => {
                   <span className="font-medium">查看会话历史</span>
                 </button>
                 <button 
+                  onClick={() => setShowFlowGraph(!showFlowGraph)}
+                  className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-blue-500/20 to-blue-600/10 hover:from-blue-500/30 hover:to-blue-600/20 text-blue-300 transition-all border border-blue-500/20 group"
+                >
+                  <div className="p-2 bg-blue-500/20 rounded-lg group-hover:bg-blue-500/30 transition-colors">
+                    <FiShare2 className="w-5 h-5" />
+                  </div>
+                  <span className="font-medium">{showFlowGraph ? '隐藏工作流图' : '工作流关系图'}</span>
+                </button>
+                <button 
                   onClick={() => setShowCollaboration(!showCollaboration)}
                   className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-green-500/20 to-green-600/10 hover:from-green-500/30 hover:to-green-600/20 text-green-300 transition-all border border-green-500/20 group"
                 >
@@ -196,6 +207,25 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* 工作流关系图面板 */}
+        {showFlowGraph && (
+          <div className="mt-6">
+            <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
+              <div className="px-5 py-4 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-blue-500/30 rounded-lg">
+                    <FiShare2 className="w-4 h-4 text-blue-300" />
+                  </div>
+                  <h3 className="font-semibold text-white">Agent 工作流关系图</h3>
+                </div>
+              </div>
+              <div className="p-4">
+                <AgentFlowGraph />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 协作配置面板 */}
         {showCollaboration && (
