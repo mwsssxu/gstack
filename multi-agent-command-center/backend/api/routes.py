@@ -21,6 +21,7 @@ from core.event_bus import EventBus
 from core.agent_collaboration import collaboration_manager, HandoffCondition
 from services.session_service import SessionService
 from services.broadcast import manager as ws_manager
+from services.metrics import metrics_collector
 import logging
 import time
 import uuid
@@ -575,3 +576,72 @@ async def get_next_agent(agent_name: str, success: bool = True):
             "next_agent": next_agent
         }
     }
+
+
+# ============== 监控 API ==============
+
+@router.get("/metrics/health")
+async def get_system_health():
+    """
+    获取系统健康状态
+    
+    返回：
+    - status: healthy/warning/error/critical
+    - alerts: 各级别告警数量
+    - metrics: 关键性能指标
+    """
+    health = metrics_collector.get_system_health()
+    return {"status": "success", "data": health}
+
+
+@router.get("/metrics/performance")
+async def get_performance_summary():
+    """
+    获取性能摘要
+    
+    包括：
+    - Agent 执行统计
+    - 工作流统计
+    - LLM 请求统计
+    """
+    summary = metrics_collector.get_performance_summary()
+    return {"status": "success", "data": summary}
+
+
+@router.get("/metrics/{metric_name}")
+async def get_metric_stats(metric_name: str, minutes: int = 30):
+    """
+    获取指定指标的统计数据
+    
+    Args:
+        metric_name: 指标名称
+        minutes: 统计时间范围（分钟）
+    """
+    stats = metrics_collector.get_metric_stats(metric_name, minutes)
+    return {"status": "success", "data": stats}
+
+
+@router.get("/alerts")
+async def get_alerts(include_resolved: bool = False):
+    """
+    获取告警列表
+    
+    Args:
+        include_resolved: 是否包含已解决的告警
+    """
+    alerts = metrics_collector.get_active_alerts(include_resolved)
+    return {"status": "success", "data": alerts}
+
+
+@router.post("/alerts/{alert_id}/resolve")
+async def resolve_alert(alert_id: str):
+    """
+    解决告警
+    
+    Args:
+        alert_id: 告警 ID
+    """
+    success = metrics_collector.resolve_alert(alert_id)
+    if success:
+        return {"status": "success", "message": f"Alert {alert_id} resolved"}
+    raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")

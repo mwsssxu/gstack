@@ -7,14 +7,16 @@ import { ProgressBar, CircularProgress } from '../components/ProgressBar';
 import { StatsCards, MiniStats, ActivityIndicator } from '../components/StatsCards';
 import { CollaborationFlow } from '../components/CollaborationFlow';
 import { AgentFlowGraph, WorkflowProgress } from '../components/AgentFlowGraph';
+import MonitoringPanel from '../components/MonitoringPanel';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useStore } from '../store';
-import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff, FiGitlab, FiShare2 } from 'react-icons/fi';
+import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff, FiGitlab, FiShare2, FiActivity } from 'react-icons/fi';
 
 export const Dashboard: React.FC = () => {
   const [showSessionHistory, setShowSessionHistory] = useState(false);
   const [showCollaboration, setShowCollaboration] = useState(false);
   const [showFlowGraph, setShowFlowGraph] = useState(false);
+  const [showMonitoring, setShowMonitoring] = useState(false);
   const { isReconnecting } = useWebSocket();
   const agents = useStore((state) => state.agents);
   const wsConnected = useStore((state) => state.wsConnected);
@@ -188,6 +190,15 @@ export const Dashboard: React.FC = () => {
                   <span className="font-medium">{showFlowGraph ? '隐藏工作流图' : '工作流关系图'}</span>
                 </button>
                 <button 
+                  onClick={() => setShowMonitoring(!showMonitoring)}
+                  className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-orange-500/20 to-orange-600/10 hover:from-orange-500/30 hover:to-orange-600/20 text-orange-300 transition-all border border-orange-500/20 group"
+                >
+                  <div className="p-2 bg-orange-500/20 rounded-lg group-hover:bg-orange-500/30 transition-colors">
+                    <FiActivity className="w-5 h-5" />
+                  </div>
+                  <span className="font-medium">{showMonitoring ? '隐藏监控面板' : '性能监控'}</span>
+                </button>
+                <button 
                   onClick={() => setShowCollaboration(!showCollaboration)}
                   className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-green-500/20 to-green-600/10 hover:from-green-500/30 hover:to-green-600/20 text-green-300 transition-all border border-green-500/20 group"
                 >
@@ -224,6 +235,13 @@ export const Dashboard: React.FC = () => {
                 <AgentFlowGraph />
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 性能监控面板 */}
+        {showMonitoring && (
+          <div className="mt-6">
+            <MonitoringPanel />
           </div>
         )}
 
