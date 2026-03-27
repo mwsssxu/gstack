@@ -8,15 +8,17 @@ import { StatsCards, MiniStats, ActivityIndicator } from '../components/StatsCar
 import { CollaborationFlow } from '../components/CollaborationFlow';
 import { AgentFlowGraph, WorkflowProgress } from '../components/AgentFlowGraph';
 import MonitoringPanel from '../components/MonitoringPanel';
+import WorkflowEditor from '../components/WorkflowEditor';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useStore } from '../store';
-import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff, FiGitlab, FiShare2, FiActivity } from 'react-icons/fi';
+import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff, FiGitlab, FiShare2, FiActivity, FiEdit3 } from 'react-icons/fi';
 
 export const Dashboard: React.FC = () => {
   const [showSessionHistory, setShowSessionHistory] = useState(false);
   const [showCollaboration, setShowCollaboration] = useState(false);
   const [showFlowGraph, setShowFlowGraph] = useState(false);
   const [showMonitoring, setShowMonitoring] = useState(false);
+  const [showWorkflowEditor, setShowWorkflowEditor] = useState(false);
   const { isReconnecting } = useWebSocket();
   const agents = useStore((state) => state.agents);
   const wsConnected = useStore((state) => state.wsConnected);
@@ -199,6 +201,15 @@ export const Dashboard: React.FC = () => {
                   <span className="font-medium">{showMonitoring ? '隐藏监控面板' : '性能监控'}</span>
                 </button>
                 <button 
+                  onClick={() => setShowWorkflowEditor(!showWorkflowEditor)}
+                  className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-pink-500/20 to-pink-600/10 hover:from-pink-500/30 hover:to-pink-600/20 text-pink-300 transition-all border border-pink-500/20 group"
+                >
+                  <div className="p-2 bg-pink-500/20 rounded-lg group-hover:bg-pink-500/30 transition-colors">
+                    <FiEdit3 className="w-5 h-5" />
+                  </div>
+                  <span className="font-medium">{showWorkflowEditor ? '隐藏编辑器' : '工作流编辑器'}</span>
+                </button>
+                <button 
                   onClick={() => setShowCollaboration(!showCollaboration)}
                   className="w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-green-500/20 to-green-600/10 hover:from-green-500/30 hover:to-green-600/20 text-green-300 transition-all border border-green-500/20 group"
                 >
@@ -242,6 +253,25 @@ export const Dashboard: React.FC = () => {
         {showMonitoring && (
           <div className="mt-6">
             <MonitoringPanel />
+          </div>
+        )}
+
+        {/* 工作流编辑器面板 */}
+        {showWorkflowEditor && (
+          <div className="mt-6">
+            <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
+              <div className="px-5 py-4 bg-gradient-to-r from-pink-500/20 to-purple-500/20 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-pink-500/30 rounded-lg">
+                    <FiEdit3 className="w-4 h-4 text-pink-300" />
+                  </div>
+                  <h3 className="font-semibold text-white">工作流编辑器</h3>
+                </div>
+              </div>
+              <div className="p-2">
+                <WorkflowEditor />
+              </div>
+            </div>
           </div>
         )}
 
