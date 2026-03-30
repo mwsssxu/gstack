@@ -71,6 +71,10 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
     setResult(null);
     setShowNextStep(false);
     
+    // 每次执行都创建新会话（不传递 session_id）
+    // 这样每次点击"开始生成"都会产生新的对话记录
+    setCurrentSessionId(null);
+    
     // 更新 Agent 状态为运行中
     updateAgentState(selectedAgent, { status: 'running' as const });
 
@@ -79,9 +83,9 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
       
       let data;
       if (workflowMode === 'full') {
-        // 执行完整工作流（带质量管理）
+        // 执行完整工作流（带质量管理）- 不传 session_id，让后端创建新会话
         setWorkflowProgress('正在执行完整工作流...');
-        data = await api.executeFullWorkflow(userIdea, currentSessionId || undefined);
+        data = await api.executeFullWorkflow(userIdea, undefined);
         
         // 更新所有参与 Agent 的状态
         if (data.steps) {
@@ -100,10 +104,10 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
         }
         setWorkflowProgress(data.status === 'completed' ? '工作流完成！' : '工作流部分完成');
       } else {
-        // 单个 Agent 执行
+        // 单个 Agent 执行 - 不传 session_id，让后端创建新会话
         data = await api.executeAgent(selectedAgent, 
           { user_idea: userIdea },
-          currentSessionId || undefined
+          undefined  // 总是创建新会话
         );
         
         // 更新 Agent 状态为完成

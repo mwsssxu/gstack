@@ -84,9 +84,9 @@ export const ConversationHistory: React.FC<ConversationHistoryProps> = ({
     loadConversations();
   }, []);
 
-  // 监听新会话
+  // 监听新会话 - 当 currentSessionId 变化时刷新列表
   useEffect(() => {
-    if (currentSessionId && !conversations.find(c => c.id === currentSessionId)) {
+    if (currentSessionId) {
       loadConversations();
     }
   }, [currentSessionId]);
