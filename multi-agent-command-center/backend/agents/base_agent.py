@@ -47,11 +47,13 @@ class BaseAgent(ABC):
         
     def get_info(self) -> Dict[str, Any]:
         """获取 Agent 信息"""
+        # 如果不在运行中，重置为 idle（避免历史错误状态影响显示）
+        display_status = self.status if self.status == 'running' else 'idle'
         return {
             "name": self.name,
             "description": self.description,
             "capabilities": self.capabilities,
-            "status": self.status,
+            "status": display_status,
             # 协作信息
             "collaboration": {
                 "inputs_from": self.inputs_from,
