@@ -22,7 +22,7 @@ export const TestPage: React.FC = () => {
           如果 WebSocket 连接成功，您应该能在主页面看到实时更新的 Agent 状态、工作流进度和任务信息。
         </p>
         <p className="text-gray-600">
-          请确保后端服务正在运行 (http://localhost:8000)。
+          请确保后端服务正在运行 (http://localhost:8001)。
         </p>
       </div>
     </div>

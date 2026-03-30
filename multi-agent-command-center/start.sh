@@ -102,7 +102,7 @@ start_backend() {
     fi
     
     # 启动后端（后台运行）
-    echo "后端服务将在 http://localhost:8000 运行"
+    echo "后端服务将在 http://localhost:8001 运行"
     nohup python3 backend/main.py > backend.log 2>&1 &
     BACKEND_PID=$!
     
@@ -127,7 +127,7 @@ start_frontend() {
 show_status() {
     echo -e "\n${GREEN}🎉 多 Agent 协作指挥中心已成功启动！${NC}"
     echo -e "\n${BLUE}服务地址:${NC}"
-    echo -e "  后端 API: ${YELLOW}http://localhost:8000${NC}"
+    echo -e "  后端 API: ${YELLOW}http://localhost:8001${NC}"
     echo -e "  前端界面: ${YELLOW}http://localhost:3001${NC}"
     echo -e "\n${BLUE}日志文件:${NC}"
     echo -e "  后端日志: ${PROJECT_ROOT}/backend.log"

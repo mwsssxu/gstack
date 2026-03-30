@@ -11,9 +11,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings(BaseSettings):
+    # Pydantic v2 配置：忽略额外字段
+    model_config = {"extra": "ignore"}
     # 服务器配置
     HOST: str = "0.0.0.0"
-    PORT: int = 8000
+    PORT: int = 8001
     DEBUG: bool = True
     
     # CORS 配置
@@ -50,10 +52,6 @@ class Settings(BaseSettings):
     # 浏览器配置
     BROWSER_HEADLESS: bool = True
     BROWSER_TIMEOUT: int = 30000  # 30 seconds
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # 忽略 .env 中的额外字段
+
 
 settings = Settings()

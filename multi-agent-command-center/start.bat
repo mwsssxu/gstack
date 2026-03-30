@@ -96,7 +96,7 @@ if not exist ".env" (
     copy .env.example .env
 )
 
-echo 后端服务将在 http://localhost:8000 运行
+echo端服务将在 http://localhost:8001行
 start /min cmd /c "python backend/main.py > backend.log 2>&1"
 call :colorEcho 2 "✓ 后端服务已启动"
 
@@ -112,7 +112,7 @@ echo.
 call :colorEcho 2 "🎉 多 Agent 协作指挥中心已成功启动！"
 echo.
 echo 服务地址:
-echo   后端 API: http://localhost:8000
+echo   后端 API: http://localhost:8001
 echo   前端界面: http://localhost:3000
 echo.
 echo 日志文件:

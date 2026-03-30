@@ -47,8 +47,8 @@ cd gstack/multi-agent-command-center
 ### 服务地址
 
 - **前端界面**: http://localhost:3001
-- **后端 API**: http://localhost:8000
-- **API 文档**: http://localhost:8000/docs
+- **后端 API**: http://localhost:8001
+- **API 文档**: http://localhost:8001/docs
 
 ## 技术栈
 

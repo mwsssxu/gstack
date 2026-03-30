@@ -268,7 +268,7 @@ export const api = {
 
   // WebSocket 连接
   createWebSocket(): WebSocket {
-    const ws = new WebSocket('ws://localhost:8000/api/ws');
+    const ws = new WebSocket('ws://localhost:8001/api/ws');
     return ws;
   }
 };

@@ -82,9 +82,16 @@ export const AgentExecutor: React.FC = () => {
         // 更新所有参与 Agent 的状态
         if (data.steps) {
           for (const step of data.steps) {
-            updateAgentState(step.agent_name, { 
-              status: step.status === 'completed' ? 'completed' : 'error'
-            });
+            // 正确处理步骤状态：completed, running, error 等
+            let agentStatus: 'idle' | 'running' | 'completed' | 'error' = 'idle';
+            if (step.status === 'completed') {
+              agentStatus = 'completed';
+            } else if (step.status === 'running' || step.status === 'pending') {
+              agentStatus = 'running';
+            } else if (step.status === 'error' || step.status === 'failed') {
+              agentStatus = 'error';
+            }
+            updateAgentState(step.agent_name, { status: agentStatus });
           }
         }
         setWorkflowProgress(data.status === 'completed' ? '工作流完成！' : '工作流部分完成');
