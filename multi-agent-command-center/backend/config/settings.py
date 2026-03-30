@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # LLM API 配置 - 阿里云百炼 (主要)
     DASHSCOPE_API_KEY: str = ""
     DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    DASHSCOPE_MODEL: str = "qwen-plus"
+    DASHSCOPE_MODEL: str = "qwen3.5-plus"
     
     # LLM API 配置 - OpenAI/ModelScope (备用)
     OPENAI_API_KEY: str = ""

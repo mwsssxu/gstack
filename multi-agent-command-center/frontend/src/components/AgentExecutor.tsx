@@ -22,7 +22,11 @@ interface ExecutionResult {
   used_fallback?: boolean;
 }
 
-export const AgentExecutor: React.FC = () => {
+interface AgentExecutorProps {
+  onSessionCreated?: (sessionId: string) => void;
+}
+
+export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }) => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>('product_thinker');
   const [workflowMode, setWorkflowMode] = useState<'single' | 'full'>('single'); // 新增：工作流模式
@@ -112,6 +116,7 @@ export const AgentExecutor: React.FC = () => {
       // 保存会话 ID
       if (data.session_id) {
         setCurrentSessionId(data.session_id);
+        onSessionCreated?.(data.session_id);
       }
       
       setTimeout(() => setShowNextStep(true), 500);

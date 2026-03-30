@@ -9,6 +9,7 @@ import { CollaborationFlow } from '../components/CollaborationFlow';
 import { AgentFlowGraph, WorkflowProgress } from '../components/AgentFlowGraph';
 import MonitoringPanel from '../components/MonitoringPanel';
 import WorkflowEditor from '../components/WorkflowEditor';
+import ConversationHistory from '../components/ConversationHistory';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useStore } from '../store';
 import { FiGithub, FiHeart, FiCpu, FiPlay, FiFileText, FiZap, FiStar, FiTrendingUp, FiWifi, FiWifiOff, FiGitlab, FiShare2, FiActivity, FiEdit3 } from 'react-icons/fi';
@@ -19,6 +20,7 @@ export const Dashboard: React.FC = () => {
   const [showFlowGraph, setShowFlowGraph] = useState(false);
   const [showMonitoring, setShowMonitoring] = useState(false);
   const [showWorkflowEditor, setShowWorkflowEditor] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>();
   const { isReconnecting } = useWebSocket();
   const agents = useStore((state) => state.agents);
   const wsConnected = useStore((state) => state.wsConnected);
@@ -139,7 +141,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             
-            <AgentExecutor />
+            <AgentExecutor onSessionCreated={setCurrentSessionId} />
           </div>
           
           {/* 右侧：状态面板 */}
@@ -281,6 +283,11 @@ export const Dashboard: React.FC = () => {
             <CollaborationFlow />
           </div>
         )}
+
+        {/* 对话历史 - 始终显示在底部 */}
+        <div className="mt-6">
+          <ConversationHistory currentSessionId={currentSessionId} />
+        </div>
       </main>
 
       {/* 页脚 */}
