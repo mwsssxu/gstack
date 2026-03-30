@@ -46,17 +46,18 @@ class SessionService:
         ).order_by(ConversationSession.updated_at.desc()).first()
     
     def get_or_create_session(self, session_id: Optional[str] = None) -> ConversationSession:
-        """获取或创建会话"""
+        """获取或创建会话
+        
+        如果提供了 session_id，则获取该会话
+        如果没有提供，则创建新会话（不复用活动会话）
+        """
         if session_id:
             session = self.get_session(session_id)
             if session:
                 return session
         
-        # 获取活动会话或创建新会话
-        active = self.get_active_session()
-        if active:
-            return active
-        
+        # 总是创建新会话，不复用活动会话
+        # 这样每次执行都会产生新的对话记录
         return self.create_session()
     
     def list_sessions(self, limit: int = 20) -> List[ConversationSession]:
