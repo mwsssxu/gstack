@@ -101,10 +101,10 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
         setWorkflowProgress(data.status === 'completed' ? '工作流完成！' : '工作流部分完成');
       } else {
         // 单个 Agent 执行
-        data = await api.executeAgent(selectedAgent, { 
-          user_idea: userIdea,
-          session_id: currentSessionId || undefined
-        });
+        data = await api.executeAgent(selectedAgent, 
+          { user_idea: userIdea },
+          currentSessionId || undefined
+        );
         
         // 更新 Agent 状态为完成
         updateAgentState(selectedAgent, { status: 'completed' as const });

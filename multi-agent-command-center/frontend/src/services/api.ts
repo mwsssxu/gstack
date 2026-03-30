@@ -72,13 +72,13 @@ export const api = {
     }));
   },
 
-  async executeAgent(agentName: string, context: Record<string, any>): Promise<any> {
-    console.log('executeAgent called:', { agentName, context });
+  async executeAgent(agentName: string, context: Record<string, any>, sessionId?: string): Promise<any> {
+    console.log('executeAgent called:', { agentName, context, sessionId });
     try {
       const response = await fetch(`${API_BASE_URL}/agents/${agentName}/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context })
+        body: JSON.stringify({ context, session_id: sessionId })
       });
       console.log('Response status:', response.status);
       if (!response.ok) {
