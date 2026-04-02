@@ -40,7 +40,11 @@ class ParanoidExpertAgent(BaseAgent):
                 "风险识别",
                 "缺陷发现",
                 "AI幻觉检测"
-            ]
+            ],
+            # 工作流配置
+            outputs_to=['quality_expert'],
+            inputs_from=['architect'],
+            feedback_to="architect"
         )
         self.llm = LLMService()
         

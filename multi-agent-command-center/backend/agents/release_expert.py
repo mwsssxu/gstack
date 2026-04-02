@@ -39,7 +39,10 @@ class ReleaseExpertAgent(BaseAgent):
                 "版本管理",
                 "回滚准备",
                 "发布文档生成"
-            ]
+            ],
+            # 工作流配置
+            outputs_to=[],
+            inputs_from=['quality_expert']
         )
         self.llm = LLMService()
     

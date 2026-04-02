@@ -68,13 +68,13 @@ GSTACK_AGENT_CONFIGS: Dict[str, AgentCollaborationConfig] = {
         inputs_from=["user", "paranoid_expert"],  # 用户直接输入，或偏执专家反馈
         outputs_to=[
             AgentHandoff(
-                target_agent="architect",
+                target_agent="strategy_planner",
                 condition=HandoffCondition.ON_SUCCESS,
-                description="设计文档完成后交给架构师"
+                description="设计文档完成后交给战略规划师"
             )
         ],
         feedback_to=None,  # 是起点，不需要反馈给谁
-        collaborators=["strategy_planner"]
+        collaborators=["strategy_planner", "architect"]
     ),
     
     "strategy_planner": AgentCollaborationConfig(

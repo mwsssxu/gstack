@@ -14,12 +14,18 @@ interface ExecutionResult {
   status: string;
   design_document?: string;
   implementation_plan?: string;
+  architecture_plan?: string;
   artifacts?: Array<{
     name: string;
     type: string;
     content: string;
   }>;
   used_fallback?: boolean;
+  session_id?: string;
+  step_index?: number;
+  // 工作流链支持
+  next_agent?: string;
+  workflow_hint?: string;
 }
 
 interface AgentExecutorProps {
@@ -140,8 +146,41 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
     if (result?.design_document) {
       setSelectedAgent(nextAgent);
       setShowNextStep(false);
+      
+      // 自动执行下一个 Agent，传递设计文档作为输入
+      setIsExecuting(true);
+      setError(null);
       setResult(null);
-      // 保持会话ID以继续执行
+      
+      updateAgentState(nextAgent, { status: 'running' as const });
+      
+      try {
+        // 下一步传递 design_document 作为上下文
+        const data = await api.executeAgent(nextAgent, {
+          design_document: result.design_document
+        }, currentSessionId || undefined);
+        
+        setResult(data);
+        
+        // 保存会话 ID
+        if (data.session_id) {
+          setCurrentSessionId(data.session_id);
+          onSessionCreated?.(data.session_id);
+        }
+        
+        updateAgentState(nextAgent, { status: 'completed' as const });
+        
+        // 如果生成了实施计划，也显示下一步
+        if (data.implementation_plan) {
+          setTimeout(() => setShowNextStep(true), 500);
+        }
+      } catch (err: any) {
+        console.error('Next step error:', err);
+        setError(err.message || '执行失败');
+        updateAgentState(nextAgent, { status: 'error' as const });
+      } finally {
+        setIsExecuting(false);
+      }
     }
   };
   
@@ -362,8 +401,8 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
             )}
           </div>
 
-          {/* 下一步引导 */}
-          {showNextStep && result.design_document && (
+          {/* 下一步引导 - 使用后端返回的 next_agent */}
+          {showNextStep && result.next_agent && (
             <div className="p-6 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-t border-white/10">
               <div className="flex items-center gap-2 mb-3">
                 <div className="p-1.5 bg-blue-500/20 rounded-lg">
@@ -372,29 +411,31 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
                 <h4 className="font-semibold text-white">下一步建议</h4>
               </div>
               <p className="text-white/50 text-sm mb-4">
-                设计文档已生成，您可以继续以下操作：
+                {result.workflow_hint || `${result.next_agent} 可以继续处理此任务`}
               </p>
               <div className="flex gap-3">
                 <button
-                  onClick={() => handleNextStep('strategy_planner')}
+                  onClick={() => handleNextStep(result.next_agent!)}
                   className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:opacity-90 transition-all font-medium shadow-lg shadow-purple-500/20"
                 >
                   <FiTarget className="w-4 h-4" />
-                  生成实施计划
+                  继续执行 ({result.next_agent})
                 </button>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(result.design_document || '');
+                    const text = result.design_document || result.implementation_plan || '';
+                    navigator.clipboard.writeText(text);
                   }}
                   className="flex items-center gap-2 px-5 py-2.5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all border border-white/10 font-medium"
                 >
-                  复制文档
+                  复制结果
                 </button>
               </div>
             </div>
           )}
           
-          {showNextStep && result.implementation_plan && (
+          {/* 工作流完成 */}
+          {showNextStep && !result.next_agent && (result.design_document || result.implementation_plan) && (
             <div className="p-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-t border-white/10">
               <div className="flex items-center gap-2 mb-2">
                 <div className="p-1.5 bg-green-500/20 rounded-lg">
@@ -403,7 +444,7 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
                 <h4 className="font-semibold text-white">工作流完成</h4>
               </div>
               <p className="text-white/50 text-sm">
-                您已获得设计文档和实施计划，可以开始项目开发了。
+                您已获得完整的输出结果，可以开始项目开发了。
               </p>
             </div>
           )}

@@ -177,6 +177,12 @@ async def execute_agent(
         result['session_id'] = session.session_id
         result['step_index'] = step_index
         
+        # 添加下一步 Agent 建议
+        next_agent = agent.get_next_agent(success=True)
+        if next_agent:
+            result['next_agent'] = next_agent
+            result['workflow_hint'] = f"建议继续执行: {next_agent}"
+        
         # 广播执行完成事件
         result_summary = output_result[:100] + '...' if len(output_result) > 100 else output_result
         await ws_manager.broadcast_agent_status(agent_name, 'completed', {

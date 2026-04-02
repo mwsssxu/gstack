@@ -17,7 +17,9 @@ class ProductThinkerAgent(BaseAgent):
         super().__init__(
             name="product_thinker",
             description="帮助用户问对问题，生成设计文档",
-            capabilities=["problem_analysis", "design_document_generation"]
+            capabilities=["problem_analysis", "design_document_generation"],
+            # 工作流：产品思考者 → 战略规划师
+            outputs_to=["strategy_planner"]
         )
         self.llm = None  # 延迟初始化
     

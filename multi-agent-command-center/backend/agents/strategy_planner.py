@@ -17,7 +17,10 @@ class StrategyPlannerAgent(BaseAgent):
         super().__init__(
             name="strategy_planner",
             description="根据设计文档制定详细的实施计划和技术路线图",
-            capabilities=["plan_generation", "roadmap_creation", "task_breakdown"]
+            capabilities=["plan_generation", "roadmap_creation", "task_breakdown"],
+            # 工作流配置
+            outputs_to=['architect'],
+            inputs_from=['product_thinker']
         )
         self.llm = None  # 延迟初始化
     

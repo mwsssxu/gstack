@@ -36,7 +36,10 @@ class ArchitectAgent(BaseAgent):
                 "边界条件处理",
                 "错误处理设计",
                 "ASCII架构图绘制"
-            ]
+            ],
+            # 工作流配置
+            outputs_to=['paranoid_expert'],
+            inputs_from=['strategy_planner', 'paranoid_expert']
         )
         self.llm = LLMService()
     

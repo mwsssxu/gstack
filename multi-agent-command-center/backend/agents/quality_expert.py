@@ -36,7 +36,11 @@ class QualityExpertAgent(BaseAgent):
                 "回归测试设计",
                 "性能评估",
                 "质量门禁检查"
-            ]
+            ],
+            # 工作流配置
+            outputs_to=['release_expert'],
+            inputs_from=['paranoid_expert'],
+            feedback_to="paranoid_expert"
         )
         self.llm = LLMService()
     
