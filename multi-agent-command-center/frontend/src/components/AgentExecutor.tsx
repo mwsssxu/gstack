@@ -47,6 +47,9 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
   const [workflowProgress, setWorkflowProgress] = useState<string>('');
   const [workflowChain, setWorkflowChain] = useState<string[]>([]); // 记录执行链
   
+  // ✨ 任务状态记忆 - 保存每个 Agent 的执行结果
+  const [taskMemory, setTaskMemory] = useState<Map<string, ExecutionResult>>(new Map());
+  
   // 全局状态管理
   const updateAgentState = useStore((state) => state.updateAgent);
 
@@ -164,7 +167,7 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
     }
   }, [result, autoAdvance, isExecuting, workflowMode, workflowChain]);
 
-  // 自动执行下一个 Agent
+  // 自动执行下一个 Agent（带任务记忆）
   const autoExecuteNext = async (nextAgent: string, currentResult: ExecutionResult) => {
     setSelectedAgent(nextAgent);
     setShowNextStep(false);
@@ -174,10 +177,36 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
     updateAgentState(nextAgent, { status: 'running' as const });
     
     try {
-      // 智能传递上下文 - 根据目标 Agent 需要传递不同的内容
+      // ✨ 保存当前结果到任务记忆
+      setTaskMemory(prev => {
+        const newMemory = new Map(prev);
+        newMemory.set(currentResult.agent_name, currentResult);
+        return newMemory;
+      });
+      
+      // ✨ 智能传递上下文 - 从任务记忆中获取所有相关输出
       const context: Record<string, any> = {};
       
-      // 传递所有相关输出
+      // 遍历任务记忆，收集所有有用的输出
+      taskMemory.forEach((memResult, agentName) => {
+        console.log(`[任务记忆] ${agentName}:`, {
+          design_document: !!memResult.design_document,
+          implementation_plan: !!memResult.implementation_plan,
+          architecture_plan: !!memResult.architecture_plan
+        });
+        
+        if (memResult.design_document) {
+          context.design_document = memResult.design_document;
+        }
+        if (memResult.implementation_plan) {
+          context.implementation_plan = memResult.implementation_plan;
+        }
+        if (memResult.architecture_plan) {
+          context.architecture_plan = memResult.architecture_plan;
+        }
+      });
+      
+      // 同时传递当前结果
       if (currentResult.design_document) {
         context.design_document = currentResult.design_document;
       }
@@ -188,9 +217,18 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
         context.architecture_plan = currentResult.architecture_plan;
       }
       
+      console.log(`[上下文传递] 执行 ${nextAgent}，携带 ${Object.keys(context).join(', ')}`);
+      
       const data = await api.executeAgent(nextAgent, context, currentSessionId || undefined);
       
       setResult(data);
+      
+      // ✨ 保存新结果到任务记忆
+      setTaskMemory(prev => {
+        const newMemory = new Map(prev);
+        newMemory.set(data.agent_name, data);
+        return newMemory;
+      });
       
       if (data.session_id) {
         setCurrentSessionId(data.session_id);
@@ -318,12 +356,43 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
                 setError(null);
                 setSelectedAgent('product_thinker');
                 setWorkflowProgress('');
+                setTaskMemory(new Map()); // 清空任务记忆
               }}
               className="ml-2 p-1 hover:bg-white/10 rounded transition-colors"
               title="重置工作流"
             >
               <FiRefreshCw className="w-3 h-3" />
             </button>
+          </div>
+        )}
+        
+        {/* ✨ 任务记忆显示 */}
+        {taskMemory.size > 0 && workflowMode === 'single' && (
+          <div className="mt-3 p-3 bg-gradient-to-r from-indigo-500/10 to-blue-500/10 rounded-lg border border-indigo-400/20">
+            <div className="flex items-center gap-2 mb-2">
+              <FiFileText className="w-4 h-4 text-indigo-300" />
+              <span className="text-sm text-white/70 font-medium">任务记忆</span>
+              <span className="text-xs text-white/40">({taskMemory.size} 个 Agent)</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {Array.from(taskMemory.entries()).map(([agentName, memResult]) => (
+                <div key={agentName} className="flex items-center gap-1 px-2 py-1 bg-white/5 rounded text-xs">
+                  <span className="text-indigo-300">{agentName}</span>
+                  <span className="text-white/40">:</span>
+                  <div className="flex gap-1">
+                    {memResult.design_document && (
+                      <span className="px-1 py-0.5 bg-blue-500/30 rounded text-blue-200">设计文档</span>
+                    )}
+                    {memResult.implementation_plan && (
+                      <span className="px-1 py-0.5 bg-purple-500/30 rounded text-purple-200">实施计划</span>
+                    )}
+                    {memResult.architecture_plan && (
+                      <span className="px-1 py-0.5 bg-green-500/30 rounded text-green-200">架构计划</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
