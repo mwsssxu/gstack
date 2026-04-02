@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useStore } from '../store';
-import { FiPlay, FiLoader, FiCheckCircle, FiAlertCircle, FiArrowRight, FiZap, FiFileText, FiTarget, FiShield, FiAward } from 'react-icons/fi';
+import { FiPlay, FiLoader, FiCheckCircle, FiAlertCircle, FiArrowRight, FiZap, FiFileText, FiTarget, FiShield, FiRefreshCw } from 'react-icons/fi';
 
 interface Agent {
   name: string;
@@ -35,7 +35,8 @@ interface AgentExecutorProps {
 export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }) => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>('product_thinker');
-  const [workflowMode, setWorkflowMode] = useState<'single' | 'full'>('single'); // 新增：工作流模式
+  const [workflowMode, setWorkflowMode] = useState<'single' | 'full'>('single');
+  const [autoAdvance, setAutoAdvance] = useState(true); // 自动推进开关
   const [userIdea, setUserIdea] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [result, setResult] = useState<ExecutionResult | null>(null);
@@ -44,6 +45,7 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [workflowProgress, setWorkflowProgress] = useState<string>('');
+  const [workflowChain, setWorkflowChain] = useState<string[]>([]); // 记录执行链
   
   // 全局状态管理
   const updateAgentState = useStore((state) => state.updateAgent);
@@ -142,59 +144,83 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
     }
   };
 
-  const handleNextStep = async (nextAgent: string) => {
-    if (result?.design_document) {
-      setSelectedAgent(nextAgent);
-      setShowNextStep(false);
-      
-      // 自动执行下一个 Agent，传递设计文档作为输入
-      setIsExecuting(true);
-      setError(null);
-      setResult(null);
-      
-      updateAgentState(nextAgent, { status: 'running' as const });
-      
-      try {
-        // 下一步传递 design_document 作为上下文
-        const data = await api.executeAgent(nextAgent, {
-          design_document: result.design_document
-        }, currentSessionId || undefined);
-        
-        setResult(data);
-        
-        // 保存会话 ID
-        if (data.session_id) {
-          setCurrentSessionId(data.session_id);
-          onSessionCreated?.(data.session_id);
-        }
-        
-        updateAgentState(nextAgent, { status: 'completed' as const });
-        
-        // 如果生成了实施计划，也显示下一步
-        if (data.implementation_plan) {
-          setTimeout(() => setShowNextStep(true), 500);
-        }
-      } catch (err: any) {
-        console.error('Next step error:', err);
-        setError(err.message || '执行失败');
-        updateAgentState(nextAgent, { status: 'error' as const });
-      } finally {
-        setIsExecuting(false);
+  // 自动推进工作流 - 当 result 有 next_agent 且 autoAdvance 开启时
+  useEffect(() => {
+    if (autoAdvance && result?.next_agent && !isExecuting && workflowMode === 'single') {
+      // 记录执行链
+      const currentAgent = result.agent_name;
+      if (!workflowChain.includes(currentAgent)) {
+        setWorkflowChain(prev => [...prev, currentAgent]);
       }
+      
+      // 延迟 1 秒后自动执行下一步
+      const timer = setTimeout(() => {
+        console.log(`[自动推进] ${currentAgent} → ${result.next_agent}`);
+        setWorkflowProgress(`正在自动执行: ${result.next_agent}...`);
+        autoExecuteNext(result.next_agent!, result);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [result, autoAdvance, isExecuting, workflowMode, workflowChain]);
+
+  // 自动执行下一个 Agent
+  const autoExecuteNext = async (nextAgent: string, currentResult: ExecutionResult) => {
+    setSelectedAgent(nextAgent);
+    setShowNextStep(false);
+    setIsExecuting(true);
+    setError(null);
+    
+    updateAgentState(nextAgent, { status: 'running' as const });
+    
+    try {
+      // 智能传递上下文 - 根据目标 Agent 需要传递不同的内容
+      const context: Record<string, any> = {};
+      
+      // 传递所有相关输出
+      if (currentResult.design_document) {
+        context.design_document = currentResult.design_document;
+      }
+      if (currentResult.implementation_plan) {
+        context.implementation_plan = currentResult.implementation_plan;
+      }
+      if (currentResult.architecture_plan) {
+        context.architecture_plan = currentResult.architecture_plan;
+      }
+      
+      const data = await api.executeAgent(nextAgent, context, currentSessionId || undefined);
+      
+      setResult(data);
+      
+      if (data.session_id) {
+        setCurrentSessionId(data.session_id);
+        onSessionCreated?.(data.session_id);
+      }
+      
+      updateAgentState(nextAgent, { status: 'completed' as const });
+      
+      // 更新进度
+      if (data.next_agent) {
+        setWorkflowProgress(`下一步: ${data.next_agent}`);
+      } else {
+        setWorkflowProgress('工作流完成');
+      }
+      
+    } catch (err: any) {
+      console.error('Auto advance error:', err);
+      setError(err.message || '自动推进失败');
+      updateAgentState(nextAgent, { status: 'error' as const });
+      setAutoAdvance(false); // 失败时停止自动推进
+    } finally {
+      setIsExecuting(false);
     }
   };
-  
-  // 开始新会话
-  const handleNewSession = () => {
-    setCurrentSessionId(null);
-    setResult(null);
-    setError(null);
-    setShowNextStep(false);
-    setUserIdea('');
-    setSelectedAgent('product_thinker');
-  };
 
-  const selectedAgentInfo = agents.find(a => a.name === selectedAgent);
+  const handleNextStep = async (nextAgent: string) => {
+    if (result) {
+      await autoExecuteNext(nextAgent, result);
+    }
+  };
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
@@ -242,6 +268,64 @@ export const AgentExecutor: React.FC<AgentExecutorProps> = ({ onSessionCreated }
             <p className="text-xs text-white/40">含审查+质量检查</p>
           </button>
         </div>
+        
+        {/* 自动推进开关 - 仅在单个模式显示 */}
+        {workflowMode === 'single' && (
+          <div className="mt-4 flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
+            <div className="flex items-center gap-2">
+              <FiArrowRight className="w-4 h-4 text-green-400" />
+              <span className="text-sm text-white/70">自动推进工作流</span>
+            </div>
+            <button
+              onClick={() => setAutoAdvance(!autoAdvance)}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                autoAdvance ? 'bg-green-500' : 'bg-white/20'
+              }`}
+            >
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                autoAdvance ? 'left-7' : 'left-1'
+              }`} />
+            </button>
+          </div>
+        )}
+        
+        {/* 工作流执行链显示 */}
+        {(workflowChain.length > 0 || workflowProgress) && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-white/50">
+            {workflowChain.length > 0 && (
+              <>
+                <span>执行链:</span>
+                <div className="flex items-center gap-1">
+                  {workflowChain.map((agent, idx) => (
+                    <React.Fragment key={agent}>
+                      <span className="px-2 py-0.5 bg-purple-500/20 rounded text-purple-300">{agent}</span>
+                      {idx < workflowChain.length - 1 && <FiArrowRight className="w-3 h-3" />}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </>
+            )}
+            {workflowProgress && (
+              <span className="ml-2 px-2 py-0.5 bg-green-500/20 rounded text-green-300 animate-pulse">
+                {workflowProgress}
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setWorkflowChain([]);
+                setCurrentSessionId(null);
+                setResult(null);
+                setError(null);
+                setSelectedAgent('product_thinker');
+                setWorkflowProgress('');
+              }}
+              className="ml-2 p-1 hover:bg-white/10 rounded transition-colors"
+              title="重置工作流"
+            >
+              <FiRefreshCw className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
       
       {/* Agent 选择区域 - 仅在单个模式显示 */}
